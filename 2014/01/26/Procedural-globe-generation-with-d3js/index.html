@@ -1,0 +1,223 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Procedural globe generation with d3js | hgcummings</title>
+  <meta name="author" content="Harry Cummings">
+  
+  <meta name="description" content="I recently entered the 2013 GitHub Game Off with a team of colleagues from Softwire. You can see our project, including all of the code discussed below, in our GitHub repository.
+The theme for the game off was ‘change’. After brainstorming a few ideas, we decided to build a game based around the idea of dealing with climate change. We split up development of the game amongst the team, and my main focus was on the GUI.
+Our first prototype (an extremely minimal viable product) used some real world data to illustrate rising sea levels on a  world map. This was interesting in concept, however we decided it would be more appealing and better support our game mechanic if the interface was a more cartoonish fictional mini-planet instead.">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Procedural globe generation with d3js"/>
+  <meta property="og:site_name" content="hgcummings"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="alternate" href="/atom.xml" title="hgcummings" type="application/atom+xml">
+  <link href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+  <link href="/css/highlightjs.css" rel="stylesheet">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <!--[if lt IE 9]><script src="/js/html5.js"></script><![endif]-->
+  
+  
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-43679804-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+</head>
+
+
+<body>
+    <header class="navbar navbar-inverse navbar-static-top" role="banner">
+        <div class="container">
+    <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">hgcummings</a>
+    </div>
+    <nav class="collapse navbar-collapse navbar-right bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+            
+                <li><a href="/about">About</a></li>
+            
+                <li><a href="/archive">Archive</a></li>
+            
+                <li><a href="/categories">Categories</a></li>
+            
+                <li><a href="/tags">Tags</a></li>
+            
+        </ul>
+    </nav>
+</div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <article class="post">
+  <div class="post-content">
+    <div class="page-header">
+      
+  
+    <h1 class="title">Procedural globe generation with d3js</h1>
+  
+
+    </div>
+      
+      <h4>
+          26 January 2014
+          
+      </h4>
+      
+    
+      <p>I recently entered the <a href="https://github.com/blog/1674-github-game-off-ii" target="_blank" rel="external">2013 GitHub Game Off</a> with a team of colleagues from <a href="http://www.softwire.com/" target="_blank" rel="external">Softwire</a>. You can see our project, including all of the code discussed below, <a href="https://github.com/Softwire/game-off-2013" target="_blank" rel="external">in our GitHub repository</a>.</p>
+<p>The theme for the game off was ‘change’. After brainstorming a few ideas, we decided to build a game based around the idea of dealing with climate change. We split up development of the game amongst the team, and my main focus was on the GUI.</p>
+<p>Our first prototype (an extremely minimal viable product) used some real world data to illustrate rising sea levels on a  world map. This was interesting in concept, however we decided it would be more appealing and better support our game mechanic if the interface was a more cartoonish fictional mini-planet instead.</p>
+<a id="more"></a>
+<p>I set out with an image in mind of a hex grid on a spinning globe. One important point was that our game would require interaction with the map, so I needed to be able to access and manipulate individual cells on the grid.</p>
+<h2>Getting started</h2>
+
+<div class="row"><div class="col-md-8">I thought this was a fairly common model so started looking for libraries that might help. I spent some time playing around with <a href="http://d3js.org/" target="_blank" rel="external">d3js</a>, which I’d already been using for the interface based on the real world, and which has some great features such as orthographic projection of co-ordinates. I also stumbled across a <a href="https://github.com/d3/d3-plugins/tree/master/geodesic" target="_blank" rel="external">d3js plugin for generating a geodesic sphere</a>, which was very close to what I wanted.<br><br>You can construct a geodesic sphere by starting with a regular <a href="http://en.wikipedia.org/wiki/Icosahedron" target="_blank" rel="external">icosahedron</a> (i.e. a D20), dividing its faces into smaller triangles, and then projecting those triangles out onto a sphere. If each edge is subdivided into <i>n</i> edges, then each face is subdivided into <i>n&sup2;</i> triangles. For <i>n=3</i> this results in the following shape:</div><div class="col-md-4 text-center"><a href="http://en.wikipedia.org/wiki/File:G%C3%A9ode_V_3_1.gif" target="_blank" rel="external"><img src="/images/20140126/Geode_V_3_1.gif"></a></div></div>
+
+<h3>From triangles to hexagons (and a few pentagons)</h3>
+
+<div class="row"><div class="col-md-8">It is, of course, impossible to tile a sphere using only hexagons, but you can get close by using 12 pentagons and a number of hexagons (which depends on the scale of the grid but can be arbitrarily large). You can construct such a grid by starting with the pattern of triangles described above and then constructing its <i>dual</i> by placing a vertex in the centre of each triangle. The next image shows the corresponding dual for the <i>n=3</i> geodesic sphere above.<br>While <a href="http://en.wikipedia.org/wiki/Dual_polyhedron" target="_blank" rel="external">dual polyhedra</a> are easy to describe in principal, actually constructing them turned out to be a bit tricky in practice. Each triangle in the initial grid would correspond to a vertex shared by three hexagons (or possibly a pentagon and two hexagons) in the dual. To construct each hexagon (or pentagon) in my grid, I would need to find the six (or five) corresponding triangles that would determine the vertices. These would involve determining neighbouring triangles.<br></div><br><div class="col-md-4 text-center"><a href="http://en.wikipedia.org/wiki/File:G%C3%A9ode_V_3_1_duale.gif" target="_blank" rel="external"><img src="/images/20140126/Geode_V_3_1_dual.gif"></a></div></div>
+
+<p></p><h4>A flawed attempt</h4>My first approach relied on the fact that the grid of triangles was constructed in a predictable way. This meant I could just assign all of the triangles a numerical index and work out the patterns of indices that describe neighbouring triangles, which is actually possible generalise in terms of the parameter <i>n</i> mentioned above. The fact that the pattern of indices repeats for each face (modulo the number of triangles in a face) simplifies this a bit, although accounting for triangles that meet along the edges or at the vertices of the original icosahedron was messier. While I did get this approach to work, it resulted in some fairly ugly code that was also very difficult to test in any meaningful way.<p></p>
+<div class="row"><div class="col-md-8"><h4>Keeping it simple</h4>I decided to go for another approach that would involve less clever code, but a bit more hard work for the computer. I found neighbours by brute force, taking each triangle in turn and searching through all the other triangles to find those that shared an edge. This resulted in much more understandable code that was also more general, which actually made it a little easier to test (by considering simpler cases). The cost of this generality was that the new code was definitely slower to run. However with some judicious choices about search order and a few easy optimisations I got it under a few seconds for the size of grid that I needed. At this point I was able to render my hex grid on a sphere, as in the following image.<br><br><em>Update:</em> I had a suspicion that the brute force part of this approach wasn’t necessary, but couldn’t quite see a way around it myself. However, I managed to get help with this particular problem in a <a href="http://www.reddit.com/r/gamedev/comments/1wf4b5/procedural_interactive_globe_generation_in/cf29kge?context=3" target="_blank" rel="external">discussion of this article on reddit</a>.<br><br></div><div class="col-md-4 text-center"><img class="img-rounded" src="/images/20140126/grid_blank.png"></div></div>
+
+<h2>Terrain generation</h2>
+
+<p>Once I had a hex grid I wanted to turn it into a little world, and that meant dividing it into continents and lakes, oceans and islands. Part of the mechanic of our game involved dealing with rising sea levels. This meant that I also needed each cell in the grid to have an altitude, so I could redraw the map if necessary as sea levels changed.</p>
+<p>While writing the geodesic grid code had been a bit arduous, it yielded an extremely useful byproduct for this process: My algorithm for generating the hex grid made it very easy to store against each hexagon an array of its neighbours.</p>
+<div class="row"><div class="col-md-8"><br>The algorithm I used for generating the land was as follows:<br><ul><li>Decide what the total number of land cells should be (e.g. 40% of the grid)</li><li>Set the starting altitude to the maximum desired</li><li>Keep choosing land cells completely at random until you reach a tenth of this number</li><li>Then choose land cells at random from the set of neighbours of existing land cells</li><li>Each time you pick a cell, set its altitude to the current altitude, and decrement the altitude</li></ul><br>This was just the first and simplest approach that came to mind, but it turned out to work quite well, producing pleasingly clumpy land masses with sufficiently interesting features. You can see the end result in the following image, and play around with it in <a href="http://softwire.github.io/game-off-2013/" target="_blank" rel="external">our prototype game</a> (use left/right arrow keys to spin the globe).<br><br></div><div class="col-md-4 text-center"><img class="img-rounded" src="/images/20140126/grid_terrain.png"></div></div>
+
+<h2>A word on testing</h2>
+
+<p>Unit testing in general and TDD in particular do not seem to be such mainstream practices in game development as they are in other parts of the software industry, possibly partly because they can be harder to apply. I was attempting to follow TDD on this project, but did find it quite challenging to write meaningful tests for the dual generation code. The second approach I took did enable me to write tests that covered all of the code, although I’m not convinced about how thoroughly my tests probe the output of the code for correctness, and I didn’t TDD it.</p>
+<p>For the terrain generation on the other hand, I was pleasantly surprised. I expected procedural generation to be very difficult to test, but I actually ended up with a set of tests that nicely described the desired behaviour, and I was also able to stick to TDD, making one code change at a time to make the current test pass. The following tests (in order) drove the development of the whole algorithm:<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">it(<span class="string">'should mark the correct proportion of cells as land'</span>, <span class="function"><span class="keyword">function</span><span class="params">()</span> </span>&#123;...&#125;);</span><br><span class="line"></span><br><span class="line">it(<span class="string">'should mark the remaining cells as sea'</span>, <span class="function"><span class="keyword">function</span><span class="params">()</span> </span>&#123;...&#125;);</span><br><span class="line"></span><br><span class="line">it(<span class="string">'should clump together land locally'</span>, <span class="function"><span class="keyword">function</span><span class="params">()</span> </span>&#123;...&#125;);</span><br><span class="line"></span><br><span class="line">it(<span class="string">'should spread out land globally'</span>, <span class="function"><span class="keyword">function</span><span class="params">()</span> </span>&#123;...&#125;);</span><br></pre></td></tr></table></figure></p>
+<p>One word of caution though: My procedural generation code does of course rely on a pseudo-random number generator in order to provide different terrain each time, and I initially accidentally wrote some non-deterministic unit tests, much to the consternation of the rest of the team! This was of course easily fixed by setting up a pRNG with a fixed seed value for the tests.</p>
+<h2>Source code</h2>
+
+<p>As mentioned at the top of the article, all of the source code is available on github. The most relevant parts for this article are:</p>
+<ul>
+<li>For the grid itself, <a href="https://github.com/Softwire/game-off-2013/blob/master/src/scripts/dual.js" target="_blank" rel="external">dual.js</a> (<a href="https://github.com/Softwire/game-off-2013/blob/master/test/dual.test.js" target="_blank" rel="external">tests</a>) and <a href="https://github.com/Softwire/game-off-2013/blob/master/src/scripts/grid.js" target="_blank" rel="external">grid.js</a> (<a href="https://github.com/Softwire/game-off-2013/blob/master/test/grid.test.js" target="_blank" rel="external">tests</a>)</li>
+<li>For the terrain generation, <a href="https://github.com/Softwire/game-off-2013/blob/master/src/scripts/terrain.js" target="_blank" rel="external">terrain.js</a> (<a href="https://github.com/Softwire/game-off-2013/blob/master/test/terrain.test.js" target="_blank" rel="external">tests</a>)</li>
+</ul>
+
+    
+    
+    <footer>
+      
+        <div class="navbar">
+          
+  <ul class="nav nav-pills navbar-left">
+    <li><a class="navbar-brand" href="/categories"><i class="icon-folder-open"> Category: </i></a></li>
+  
+    <li><a href="/categories#JavaScript-ref">JavaScript <span class="badge">2</span></a></li>
+  
+  </ul>
+
+          
+<ul class="nav nav-pills navbar-right">
+    <li><a class="navbar-brand" href="/tags"><i class="icon-tags"> Tags: </i></a></li>
+    
+    <li><a href="/tags#competitions-ref">competitions <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#gamedev-ref">gamedev <span class="badge">3</span></a></li>
+    
+</ul>
+
+        </div>
+      
+      <div class="clearfix"></div>
+    </footer>
+    
+  </div>
+</article>
+
+
+<hr>
+<ul class="pager">
+    <li class="previous">
+        <a href="/2013/09/30/Js13kgames-retrospective-part-2/">&larr; Previous</a>
+    </li>
+    <li><a href="/archive">Archive</a></li>
+    <li class="next">
+        <a href="/2014/08/26/Caching-Travis-CI-dependencies-in-S3/">Next &rarr;</a>
+    </li>
+</ul>
+<hr>
+
+<section id="comment">
+  <h1 class="title">Comments</h1>
+
+  
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+  
+</section>
+
+
+        </div>
+        <hr>
+        <footer><p>
+  
+  &copy; 2013&mdash;2015 Harry Cummings
+  
+  (built using <a href="http://zespia.tw/hexo/" target="_blank" title="Hexo - Node.js blog framework">Hexo</a>
+    and <a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a>)
+</p></footer>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'hgcblog';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+    </div>
+</body>
+</html>

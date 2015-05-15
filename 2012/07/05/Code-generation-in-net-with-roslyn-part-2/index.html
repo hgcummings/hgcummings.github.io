@@ -1,0 +1,236 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Code generation in .NET with Roslyn (part 2) | hgcummings</title>
+  <meta name="author" content="Harry Cummings">
+  
+  <meta name="description" content="This post is the second in a series on code generation on the .NET platform. In this post, we will take a closer look at Microsoft’s Community Technology Preview of ‘Roslyn’. In brief, this is a C# compiler implemented in managed code that exposes an API to let you hook into the compilation process.
+RecapIn the previous post, I introduced Roslyn as an interesting tool for code generation, in particular when generating source code from other source code. Roslyn is especially appealing for this purpose because it provides a strongly-typed model for working with source code and (unlike most code generation approaches) allows you to use the same model for both input and output.
+One of the common drawbacks of most other options for code generation (as discussed in the previous post) is the need to translate from one model to another and how clumsy this can be, particularly when you want to carry across some elements of the input source code without changing them. A detailed example of when you might need to do this is discussed in the appendix at the end of this post.">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Code generation in .NET with Roslyn (part 2)"/>
+  <meta property="og:site_name" content="hgcummings"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="alternate" href="/atom.xml" title="hgcummings" type="application/atom+xml">
+  <link href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+  <link href="/css/highlightjs.css" rel="stylesheet">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <!--[if lt IE 9]><script src="/js/html5.js"></script><![endif]-->
+  
+  <link rel="canonical" href="http://www.softwire.com/blog/2012/07/05/code-generation-in-net-with-the-roslyn-ctp-part-2/" />
+  
+  
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-43679804-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+</head>
+
+
+<body>
+    <header class="navbar navbar-inverse navbar-static-top" role="banner">
+        <div class="container">
+    <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">hgcummings</a>
+    </div>
+    <nav class="collapse navbar-collapse navbar-right bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+            
+                <li><a href="/about">About</a></li>
+            
+                <li><a href="/archive">Archive</a></li>
+            
+                <li><a href="/categories">Categories</a></li>
+            
+                <li><a href="/tags">Tags</a></li>
+            
+        </ul>
+    </nav>
+</div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <article class="post">
+  <div class="post-content">
+    <div class="page-header">
+      
+  
+    <h1 class="title">Code generation in .NET with Roslyn (part 2)</h1>
+  
+
+    </div>
+      
+      <h4>
+          5 July 2012
+          
+          <br/>
+          <small>
+              This post was originally published on <a href="http://www.softwire.com/blog/2012/07/05/code-generation-in-net-with-the-roslyn-ctp-part-2/" target="_blank">the Softwire blog</a>
+          </small>
+          
+      </h4>
+      
+    
+      <p>This post is the second in a series on code generation on the .NET platform. In this post, we will take a closer look at Microsoft’s <a href="http://msdn.microsoft.com/en-gb/roslyn" target="_blank" rel="external">Community Technology Preview of ‘Roslyn’</a>. In brief, this is a C# compiler implemented in managed code that exposes an API to let you hook into the compilation process.</p>
+<h3 id="Recap">Recap</h3><p>In the previous post, I introduced Roslyn as an interesting tool for code generation, in particular when generating source code from other source code. Roslyn is especially appealing for this purpose because it provides a strongly-typed model for working with source code and (unlike most code generation approaches) allows you to use the same model for both input and output.</p>
+<p>One of the common drawbacks of most other options for code generation (as discussed in the previous post) is the need to translate from one model to another and how clumsy this can be, particularly when you want to carry across some elements of the input source code without changing them. A detailed example of when you might need to do this is discussed in the appendix at the end of this post.<a id="more"></a></p>
+<p>This kind of code generation should be easier to implement using Roslyn, since using the same model for input and output doesn’t force you to create your output code from scratch, but instead allows you to generate a modified version of your input code. The overall outline of the process is as follows:</p>
+<ul>
+<li>Read in the source code of the original contract and get Roslyn to parse it into a strongly-typed syntax tree</li>
+<li>Manipulate the bits of the syntax tree that we’re interested in, leaving the rest alone</li>
+<li>Get Roslyn to write out code for the modified syntax tree</li>
+</ul>
+<p>The rest of this post covers what I learned as I went about implementing a Roslyn-based code generator in this way.</p>
+<h3 id="Working_with_Roslyn">Working with Roslyn</h3><p>The current Roslyn release has some limitations (there’s a <a href="http://social.msdn.microsoft.com/Forums/en-US/roslyn/thread/f5adeaf0-49d0-42dc-861b-0f6ffd731825" target="_blank" rel="external">complete list of known issues on the MSDN forums</a>, which has been updated for the second CTP). However the API is supposed to be fairly stable, so anything learnt about it or written against it now should remain relevant for the final release. I found this to be the case when updating from the first CTP to the second. I did have to make some changes, but in most cases it was very easy to see how to translate my code to use the new API. None of the changes forced me to re-order things or otherwise alter the structure of my program; it was mostly just a matter of using slightly different methods and updating some property names.</p>
+<h4 id="Creating_Syntax_Trees_&amp;_Nodes">Creating Syntax Trees &amp; Nodes</h4><p>You can parse a string into a syntax tree using the SyntaxTree.ParseCompilationUnit method. The API of Roslyn’s syntax tree model is reasonably discoverable. <strong>All the various syntax objects are created by static factory methods</strong>, which you can reach by typing ‘<code>Syntax.</code>‘ and following Intellisense. The Factory methods have lots of parameters, but make heavy use of named parameters with default values, so you can get away without specifying all of them. However, you need to be careful about this…</p>
+<p>One thing you’ll notice quite quickly is that <strong>the syntax tree model is designed to be able to represent broken code</strong>. This makes sense, since one of the intended uses of Roslyn is writing code fix-up tools like ReSharper. This does mean that if you want to transform from valid code to valid code, there’s quite a bit of additional complexity in the API that you might prefer not to have to think about (e.g. having to specify that you’d like separators between your parameters, or semi-colons at the end of you interface method signatures, when anything else wouldn’t compile anyway). When you create a new syntax node without specifying some property of it, the API seemed to be slightly inconsistent in whether the default behaviour will be the most sensible one (i.e. whatever will compile).</p>
+<h4 id="Manipulating_the_model">Manipulating the model</h4><p><strong>Syntax trees and the nodes within them are immutable</strong>. Most syntax nodes have an Update method which doesn’t affect the original node, but returns a new one with your changes applied. For example, the original Roslyn documentation suggested something like this for renaming a namespace:</p>
+<figure class="highlight csharp"><table><tr><td class="code"><pre><span class="line">NamespaceDeclarationSyntax newNamespace =</span><br><span class="line">    oldNamespace.Update(oldNamespace.NamespaceKeyword,</span><br><span class="line">                        newNamespaceName,</span><br><span class="line">                        oldNamespace.OpenBraceToken,</span><br><span class="line">                        oldNamespace.Externs,</span><br><span class="line">                        oldNamespace.Usings,</span><br><span class="line">                        oldNamespace.Members,</span><br><span class="line">                        oldNamespace.CloseBraceToken,</span><br><span class="line">                        oldNamespace.SemicolonTokenOpt);</span><br></pre></td></tr></table></figure>
+<p>For some reason, these Update methods don’t make the same use of named parameters and default values that the factory methods do. This means that if you just want to change one property they’re rather pointlessly verbose (as in the above example). I previously wrote my own extension methods for this purpose, so the above would become:</p>
+<figure class="highlight csharp"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 'Update' in this case is an extension method</span></span><br><span class="line">NamespaceDeclarationSyntax newNamespace =</span><br><span class="line">    oldNamespace.Update(name: newNamespaceName);</span><br></pre></td></tr></table></figure>
+<p>However, with the second Roslyn CTP in June, Microsoft have addressed this in a slightly different way by adding lots of fluent-style methods for updating one property at a time, so the above would become:</p>
+<figure class="highlight csharp"><table><tr><td class="code"><pre><span class="line">NamespaceDeclarationSyntax newNamespace = oldNamespace.WithName(newNamespaceName);</span><br></pre></td></tr></table></figure>
+<p>You can create a new updated tree by calling Roslyn’s ReplaceNodes() extension method on the root node (which again doesn’t modify the original tree but returns a new tree with the specified nodes replaced), passing it the nodes you want to replace and a function for transforming each node. The signature for ReplaceNodes() looks like this:</p>
+<figure class="highlight csharp"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> TRoot ReplaceNodes&lt;TRoot, TNode&gt;(</span><br><span class="line">        <span class="keyword">this</span> TRoot root,</span><br><span class="line">        IEnumerable&lt;TNode&gt; oldNodes,</span><br><span class="line">        Func&lt;TNode, TNode, SyntaxNode&gt; computeReplacementNode)</span><br><span class="line">    <span class="keyword">where</span> TRoot : SyntaxNode <span class="keyword">where</span> TNode : SyntaxNode;</span><br></pre></td></tr></table></figure>
+<p>It’s not immediately obvious why the computeReplacementNode function type has <strong>two</strong> input parameters of type TNode. In all the cases where I was using this method, Roslyn always passed in the exact same (i.e. reference equal) object for both. Fortunately, the second CTP has <a href="http://social.msdn.microsoft.com/Forums/en-US/roslyn/thread/91613dc0-290e-408c-b136-2d1d4a23e295" target="_blank" rel="external">an extremely helpful FAQ with extensive code samples in the form of unit tests</a>, which includes an example covering this method. It turns out that the first parameter represents the node before any replacements have been made, and the second parameter represents the original node with its descendants already replaced. The two arguments may often be the same if you’re only replacing one or two specific nodes, rather than performing a more general transformation on most or all of the nodes in the tree.</p>
+<p>If you want to add or remove nodes of a tree (rather than just updating them), this typically becomes a matter of updating a list property on the relevant parent node, again either using Update() or one of the new fluent-style “With-“ methods.</p>
+<h4 id="Outputting_source_code">Outputting source code</h4><p>Finally, you can get back from a source tree to a string by calling GetText() on your new root node. However, you’ll definitely want to call Format() on the root node before you do so: This method is responsible for making sure the outputted code has sensible and consistent whitespace. Beware that this is more than just a matter of making your code look pretty: If you don’t call Format, Roslyn might miss out vital things like spaces between parameter types and parameter names (think about it for a second…)! Note that you only need to call Format() on the outermost node: Calling it on inner nodes first makes no difference (and presumably takes some amount of processing).</p>
+<p>With the second CTP, the formatting methods have been moved out into the Roslyn.Services assembly, and the API has changed slightly so that Format() returns an IFormattingResult object rather than a new root node. This interface includes a new GetTextChanges method, which may be useful in some scenarios. However, if you just want the complete text for the newly formatted node though, you can use the method chain <code>.Format().GetFormattedRoot().GetText();</code></p>
+<h4 id="Gotchas">Gotchas</h4><p>I did encounter a few cases where I had to use the debugger to explore the original syntax tree and work out what was going on (although, a couple of samples included with the CTP are <a href="http://blogs.msdn.com/b/visualstudio/archive/2011/10/19/roslyn-syntax-visualizers.aspx" target="_blank" rel="external">syntax visualization tools</a>, which may also be useful for this purpose). For example: Many SyntaxNode types have an Attributes property of type SyntaxList, which makes sense. What didn’t make sense to me initially was that each AttributeDeclarationSyntax in this list itself has a property called Attributes of type SeparatedSyntaxList. I eventually realised this was due to an esoteric feature of the C# language that allows you to add attributes to a class using a comma-seperated <code>[Attribute1, Attribute2, Attribute3]</code> syntax, rather than the more usual practice of putting each attribute in it’s own pair of square brackets on a new line. I ended up just using <code>attributeList.SelectMany(a =&gt; a.Attributes)</code>.</p>
+<p>This is a good example of how Roslyn’s source code model differs significantly from the Reflection model (which is only concerned with compiled types, where the two cases above would appear identical) or even CodeDOM (which is a model of code rather than of compiled types, but is too general to ever differentiate between such minor syntax variations). This clearly illustrates how Roslyn gives you more control than something like CodeDOM, but at the cost of some additional complexity you have to bear in mind.</p>
+<h3 id="Wrapping_up">Wrapping up</h3><p>Having successfully got Roslyn doing what I wanted it to, I thought it would be worth packaging up my Roslyn-based code generator into a neat Visual Studio extension because, after all, how hard could it be? We’ll find out in the next post…</p>
+<h3 id="Appendix:_A_real-world_problem">Appendix: A real-world problem</h3><p>The particular proof-of-concept I chose to implement for this exercise was a generator for creating an asynchronous WCF service interface from a synchronous version. This is a common requirement in order to make use of some clever WCF plumbing that allows you to implement a service contract consisting of simple, synchronous methods, and to consume that service via a contract containing corresponding asynchronous methods (which may be more appropriate for some clients or communication scenarios). An example of what these two contracts might look like follows:</p>
+<figure class="highlight csharp"><table><tr><td class="code"><pre><span class="line">[ServiceContract]</span><br><span class="line">[XmlSerializerFormat]</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title">IService1</span></span><br><span class="line">&#123;</span><br><span class="line">  [OperationContract]</span><br><span class="line">  <span class="function"><span class="keyword">string</span> <span class="title">GetData</span><span class="params">(<span class="keyword">int</span> <span class="keyword">value</span>)</span></span>;</span><br><span class="line"></span><br><span class="line">  [OperationContract]</span><br><span class="line">  <span class="function">OutputType <span class="title">GetComplexData</span><span class="params">(InputType <span class="keyword">value</span>)</span></span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">[ServiceContract]</span><br><span class="line">[XmlSerializerFormat]</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title">IService1Async</span></span><br><span class="line">&#123;</span><br><span class="line">  [OperationContract(AsyncPattern = <span class="keyword">true</span>)]</span><br><span class="line">  <span class="function">IAsyncResult <span class="title">BeginGetData</span><span class="params">(<span class="keyword">int</span> <span class="keyword">value</span>, AsyncCallback callback, <span class="keyword">object</span> state)</span></span>;</span><br><span class="line">  <span class="function"><span class="keyword">string</span> <span class="title">EndGetData</span><span class="params">(IAsyncResult result)</span></span>;</span><br><span class="line"></span><br><span class="line">  [OperationContract(AsyncPattern = <span class="keyword">true</span>)]</span><br><span class="line">  <span class="function">IAsyncResult <span class="title">BeginGetComplexData</span><span class="params">(InputType <span class="keyword">value</span>,</span><br><span class="line">                                   AsyncCallback callback, <span class="keyword">object</span> state)</span></span>;</span><br><span class="line">  <span class="function">OutputType <span class="title">EndGetComplexData</span><span class="params">(IAsyncResult result)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Even if you’re not familiar with WCF, you can see that the second interface contract is a lot more complex than the first and may be correspondingly more difficult to implement. You can also see that translating the first interface contract into the second is just a matter of following some simple rules and could be quite a mechanical process.</p>
+<p><hr></p>
+<h4 id="Aside:">Aside:</h4><p>In fact, this translation can be performed by svcutil.exe, a program that ships with the .NET framework, the main purpose of which is to generate code for WCF service clients. However, if the service and client are part of the same project and the same codebase, you don’t need to generate contracts on the client side (it’s also quite difficult to integrate svcutil into your build process if you want the client to automatically pick up changes to the service, since it requires the service code to be not only compiled but deployed and running). For these reasons a lot of people put their service contracts in a shared assembly and reference it directly from the client. However, this means you also lose the benefit of svcutil creating asynchronous versions of your service contracts.<hr><br>What would be nice is to get an asynchronous version of your WCF contract that automatically stayed up-to-date at design time (without having to build and run your service). I’ve come across a few attempts to do this which have forgotten to carry across something from the original definition to the generated one (e.g. the XmlSerializerFormatAttribute on the contracts above), or have included a lot of complex code to handle all the fiddly edge-cases you have to worry about (e.g. writing out attribute parameters correctly) when attempting to faithfully reproduce all of these aspects of the original code. What you really want is a code generator that</p>
+<ul>
+<li>Transforms each service method according to the rules for turning synchronous methods into asynchronous ones</li>
+<li>Doesn’t alter any other part of the code, but automatically reproduces it in the generated contract</li>
+</ul>
+<p>Writing a code generator using Roslyn allowed me to focus on the first point, while achieving the second point without even having to think about it.</p>
+
+    
+    
+    <footer>
+      
+        <div class="navbar">
+          
+  <ul class="nav nav-pills navbar-left">
+    <li><a class="navbar-brand" href="/categories"><i class="icon-folder-open"> Category: </i></a></li>
+  
+    <li><a href="/categories#.NET-ref">.NET <span class="badge">3</span></a></li>
+  
+  </ul>
+
+          
+<ul class="nav nav-pills navbar-right">
+    <li><a class="navbar-brand" href="/tags"><i class="icon-tags"> Tags: </i></a></li>
+    
+    <li><a href="/tags#c#-ref">c# <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#metaprogramming-ref">metaprogramming <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#roslyn-ref">roslyn <span class="badge">3</span></a></li>
+    
+</ul>
+
+        </div>
+      
+      <div class="clearfix"></div>
+    </footer>
+    
+  </div>
+</article>
+
+
+<hr>
+<ul class="pager">
+    <li class="previous">
+        <a href="/2012/06/28/Code-generation-in-net-with-roslyn-part-1/">&larr; Previous</a>
+    </li>
+    <li><a href="/archive">Archive</a></li>
+    <li class="next">
+        <a href="/2012/07/12/Code-generation-in-net-with-roslyn-part-3/">Next &rarr;</a>
+    </li>
+</ul>
+<hr>
+
+<section id="comment">
+  <h1 class="title">Comments</h1>
+
+  
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+  
+</section>
+
+
+        </div>
+        <hr>
+        <footer><p>
+  
+  &copy; 2013&mdash;2015 Harry Cummings
+  
+  (built using <a href="http://zespia.tw/hexo/" target="_blank" title="Hexo - Node.js blog framework">Hexo</a>
+    and <a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a>)
+</p></footer>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'hgcblog';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+    </div>
+</body>
+</html>

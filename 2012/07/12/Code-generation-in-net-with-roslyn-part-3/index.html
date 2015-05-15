@@ -1,0 +1,211 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Code generation in .NET with Roslyn (part 3) | hgcummings</title>
+  <meta name="author" content="Harry Cummings">
+  
+  <meta name="description" content="This post is the third in a series on code generation on the .NET platform. In this post, we will look at how to package a code generator as a Visual Studio extension, and how best to share a single library between multiple extensions.">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Code generation in .NET with Roslyn (part 3)"/>
+  <meta property="og:site_name" content="hgcummings"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="alternate" href="/atom.xml" title="hgcummings" type="application/atom+xml">
+  <link href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+  <link href="/css/highlightjs.css" rel="stylesheet">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <!--[if lt IE 9]><script src="/js/html5.js"></script><![endif]-->
+  
+  <link rel="canonical" href="http://www.softwire.com/blog/2012/07/12/code-generation-in-net-with-the-roslyn-ctp-part-3/" />
+  
+  
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-43679804-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+</head>
+
+
+<body>
+    <header class="navbar navbar-inverse navbar-static-top" role="banner">
+        <div class="container">
+    <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">hgcummings</a>
+    </div>
+    <nav class="collapse navbar-collapse navbar-right bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+            
+                <li><a href="/about">About</a></li>
+            
+                <li><a href="/archive">Archive</a></li>
+            
+                <li><a href="/categories">Categories</a></li>
+            
+                <li><a href="/tags">Tags</a></li>
+            
+        </ul>
+    </nav>
+</div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <article class="post">
+  <div class="post-content">
+    <div class="page-header">
+      
+  
+    <h1 class="title">Code generation in .NET with Roslyn (part 3)</h1>
+  
+
+    </div>
+      
+      <h4>
+          12 July 2012
+          
+          <br/>
+          <small>
+              This post was originally published on <a href="http://www.softwire.com/blog/2012/07/12/code-generation-in-net-with-the-roslyn-ctp-part-3/" target="_blank">the Softwire blog</a>
+          </small>
+          
+      </h4>
+      
+    
+      <p>This post is the third in a series on code generation on the .NET platform. In this post, we will look at how to package a code generator as a Visual Studio extension, and how best to share a single library between multiple extensions.<br><a id="more"></a></p>
+<h3 id="Creating_a_single_file_code_generator">Creating a single file code generator</h3><p>Visual Studio allows you to hook into code generators from within the IDE by associating files in your project with a ‘Custom tool’ that produces another file based on the first, which will automatically be included in the project as well. The original file might be a class file, XML (e.g. a dataset definition), or any other kind of project file. The output file will typically be some source code, and might define a new class, or contain a partial class definition for the same class as in the original file.</p>
+<p>Creating a single file code generator actually involves quite a lot of boilerplate, including various COM interop assemblies, several poorly documented interfaces, and some tedious steps to add your extension to the registry so Visual Studio will pick it up. Fortunately, there’s <a href="http://code.msdn.microsoft.com/SingleFileGenerator" target="_blank" rel="external">an MSDN sample that covers all of this for you</a> and includes an example code generator for you to crib from if you get stuck. The base classes implement all the necessary boilerplate and just leave you to override a single, fairly self-explanatory, abstract method:</p>
+<figure class="highlight csharp"><table><tr><td class="code"><pre><span class="line"><span class="keyword">protected</span> <span class="keyword">abstract</span> <span class="keyword">byte</span>[] GenerateCode(<span class="keyword">string</span> inputFileContent);</span><br></pre></td></tr></table></figure>
+<p>This is all very nice, apart from the fact that the documentation says “To build and execute the sample, press F5 after the sample is loaded. This will launch the experimental hive which will demonstrate the sample’s function.” (The words “experimental hive” just means it makes a new place in the registry for all the settings used by the test instance of Visual Studio, so you can muck about with installing extensions without having any wider effect). This didn’t work at all for me, and despite finding <a href="http://hocke.blogspot.com/2010/09/how-to-get-single-file-generator-sample.html" target="_blank" rel="external">a blog post claiming to get it working in Visual Studio 2010</a> I couldn’t get to a point where I could develop my extension and just hit F5 to debug it in Visual Studio. Trying to get it to work involved digging into a lot of the work the sample is supposed to abstract away in the first place, and ended up being a bit of a time sink for me.</p>
+<p>However, it’s not actually that important to be able to debug your extension in Visual Studio. In fact, if you’re just writing a code generator it’s pretty pointless. Every time you debug, you would have to create or open a project in the ‘debuggee’ Visual Studio instance and set your code generator as the custom tool on a file. It’s much quicker to just write a unit test for your code generator with a suitable input string (either read in from a file or just specified as a constant in the unit test code), and debug via this test instead. Once you’re happy with the behaviour of your code generator under test, it’s very easy to install your extension in Visual Studio to check that it still works (just double-click the .vsix file in your output directory and open a new instance of VS).</p>
+<h3 id="Sharing_a_library_between_extensions">Sharing a library between extensions</h3><p>Having created a Roslyn-based code generator, I wanted to create a shared library of any code that wasn’t specific to my code generation scenario but could be used by any Roslyn-based code generator. This would include some of the extension methods I’d written, and a base class for abstracting away some of the more general communication with Roslyn.</p>
+<p>For VS 2010, extensions are packaged into VSIX files, which follow a fairly neatly-specified XML-based format used in the nice Extensions ‘gallery’ introduced in the latest version of Visual Studio. Unfortunately, packaging an extension containing multiple assemblies doesn’t ‘just work’ as one might hope it would. I also experimented with creating a ‘base extension’, but this is rather more complex and wasn’t necessary for my purposes. There’s a fairly thorough <a href="http://blogs.msdn.com/b/visualstudio/archive/2010/06/09/vsix-best-practices.aspx" target="_blank" rel="external">VSIX Best Practices blog post</a> explaining the various approaches and when you should use each. It mentions packaging multiple assemblies into one extension, but doesn’t quite go into detail on how to achieve this.</p>
+<p>It turns out that packaging multiple assemblies into a Visual Studio extension is actually very simple if you edit the VSIX manifest directly, but the Visual Studio ‘Designer’ for this file (as is the case with many Visual Studio ‘Designer’ tools) is a bit half-baked and doesn’t understand the complete spec of the file type it’s supposed to edit. The designer does however helpfully support some much more esoteric options that are explicitly ruled out by the official source on best practices (see the ‘Things to Avoid’ section in the blog post mentioned above).</p>
+<p>You can find the final VSIX manifest I created, along with the rest of the source for this blog series, in my <a href="https://github.com/hgcummings/RoslynGenerators" target="_blank" rel="external">RoslynGenerators repository on github</a>. This repository includes a project template and a supporting library for creating your own Roslyn-based single file code generators as Visual Studio extensions. The repository also includes an example generator for creating an asynchronous version of a WCF service interface.</p>
+<h3 id="Postscript:_Not_forgetting…">Postscript: Not forgetting…</h3><p>While this series was primarily an explanation of what’s possible with Roslyn, I couldn’t conclude without mentioning a few other existing tools and libraries.</p>
+<h4 id="Existing_third-party_libraries">Existing third-party libraries</h4><p>It’s worth noting some excellent third-party libraries that cover much of the same functionality as promised by Roslyn. In particular, <a href="https://github.com/icsharpcode/NRefactory/" target="_blank" rel="external">NRefactory</a> is a C#/VB parser (developed for the third-party SharpDevelop IDE) that does almost exactly what’s described in the section “Introducing Roslyn” in the first post of this series, while the Mono project’s <a href="http://docs.go-mono.com/index.aspx?link=N%3AMono.CSharp" target="_blank" rel="external">CSharp</a> namespace covers some of the other features available in Roslyn (e.g. compiler-as-a-service, and a REPL).</p>
+<h4 id="T4">T4</h4><p>T4 is the Text Template Transformation Toolkit, which is part of Visual Studio and therefore the standard tool for code generation in .NET. If you’re already familiar with T4, you might have been wondering why it hasn’t come up in this series so far. The reason is that T4 is a much more than just another code generation process. It’s a very general purpose tool for generating code (or indeed any text-based output). T4 templates can call arbitrary assemblies, so could make use of any of the options discussed in the first post of this series (although T4 naturally pushes you towards using plain text for your output model).</p>
+<p>In fact, I could have written a T4 template that made use of Roslyn for code generation, but I went with writing a Visual Studio extension because it felt like a better fit. In particular, while T4 templates can be very powerful and I’ve found them useful in the past, the template code itself can become quite difficult to maintain. I prefer to write my code generation logic in a normal average .NET project; benefiting from Visual Studio’s standard syntax highlighting, intellisense, and many useful design- and compile-time checks.</p>
+<p>I certainly don’t mean to dismiss T4 entirely. In particular, there are some 3rd-party Visual Studio plugins that make T4 templates much easier to work with, by providing syntax highlighting and intellisense among other features: <a href="http://visualstudiogallery.msdn.microsoft.com/60297607-5fd4-4da4-97e1-3715e90c1a23" target="_blank" rel="external">Tangible T4 Editor</a> and <a href="http://visualstudiogallery.msdn.microsoft.com/40a887aa-f3be-40ec-a85d-37044b239591" target="_blank" rel="external">Clarius Visual T4</a> both offer similar feature sets and have a similar business model (a limited free version and a full-featured ‘pro’ version). Additionally, T4 is highly extensible; you can create your own text templating host and directive processors to control how your templates are compiled and run. For an excellent overview of the T4 architecture and many more T4 resources, see <a href="http://www.olegsych.com/2008/05/t4-architecture/" target="_blank" rel="external">Oleg Sych’s blog</a>.</p>
+
+    
+    
+    <footer>
+      
+        <div class="navbar">
+          
+  <ul class="nav nav-pills navbar-left">
+    <li><a class="navbar-brand" href="/categories"><i class="icon-folder-open"> Category: </i></a></li>
+  
+    <li><a href="/categories#.NET-ref">.NET <span class="badge">3</span></a></li>
+  
+  </ul>
+
+          
+<ul class="nav nav-pills navbar-right">
+    <li><a class="navbar-brand" href="/tags"><i class="icon-tags"> Tags: </i></a></li>
+    
+    <li><a href="/tags#c#-ref">c# <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#metaprogramming-ref">metaprogramming <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#roslyn-ref">roslyn <span class="badge">3</span></a></li>
+    
+</ul>
+
+        </div>
+      
+      <div class="clearfix"></div>
+    </footer>
+    
+  </div>
+</article>
+
+
+<hr>
+<ul class="pager">
+    <li class="previous">
+        <a href="/2012/07/05/Code-generation-in-net-with-roslyn-part-2/">&larr; Previous</a>
+    </li>
+    <li><a href="/archive">Archive</a></li>
+    <li class="next">
+        <a href="/2013/08/31/LiveReloading-shared-client-and-server-side-code/">Next &rarr;</a>
+    </li>
+</ul>
+<hr>
+
+<section id="comment">
+  <h1 class="title">Comments</h1>
+
+  
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+  
+</section>
+
+
+        </div>
+        <hr>
+        <footer><p>
+  
+  &copy; 2013&mdash;2015 Harry Cummings
+  
+  (built using <a href="http://zespia.tw/hexo/" target="_blank" title="Hexo - Node.js blog framework">Hexo</a>
+    and <a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a>)
+</p></footer>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'hgcblog';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+    </div>
+</body>
+</html>

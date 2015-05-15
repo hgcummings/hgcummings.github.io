@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <url>
+    <loc>http://hgc.io/2014/08/28/Continuous-deployment-to-Heroku-with-Travis-CI/</loc>
+    <lastmod>2014-08-27T22:03:16.806Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2014/08/26/Caching-Travis-CI-dependencies-in-S3/</loc>
+    <lastmod>2014-08-27T22:00:20.937Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2013/09/30/Js13kgames-retrospective-part-2/</loc>
+    <lastmod>2014-08-27T20:02:52.509Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2013/09/29/Js13kgames-retrospective-part-1/</loc>
+    <lastmod>2014-08-27T18:44:38.925Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/404.html</loc>
+    <lastmod>2014-08-26T21:47:35.493Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2012/07/05/Code-generation-in-net-with-roslyn-part-2/</loc>
+    <lastmod>2014-08-24T20:39:34.285Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2012/07/12/Code-generation-in-net-with-roslyn-part-3/</loc>
+    <lastmod>2014-08-24T20:39:31.233Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2013/08/31/LiveReloading-shared-client-and-server-side-code/</loc>
+    <lastmod>2014-08-24T16:19:11.366Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2014/01/26/Procedural-globe-generation-with-d3js/</loc>
+    <lastmod>2014-04-20T22:22:58.102Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/tags/index.html</loc>
+    <lastmod>2014-04-19T08:09:03.754Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/categories/index.html</loc>
+    <lastmod>2014-04-19T08:09:03.740Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/about/index.html</loc>
+    <lastmod>2014-04-19T08:09:03.739Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2012/06/28/Code-generation-in-net-with-roslyn-part-1/</loc>
+    <lastmod>2014-04-19T08:09:03.727Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/2012/03/02/Getting-on-with-ebooks/</loc>
+    <lastmod>2014-04-19T08:09:03.725Z</lastmod>
+  </url>
+  
+</urlset>

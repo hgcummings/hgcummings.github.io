@@ -1,0 +1,222 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Js13kGames retrospective (part 1) | hgcummings</title>
+  <meta name="author" content="Harry Cummings">
+  
+  <meta name="description" content="I recently entered Js13kGames, a really well-organised JavaScript coding competition run by Andrzej Mazur. It’s a month-long game development competition with the key restriction that each game’s source code must fit within 13KB (when minified and zipped) and not pull in any external libraries or other resources at runtime.
+ I ended up taking 2nd place in the (admittedly not too hotly contested) server category. I learned a lot about JavaScript development, the HTML5 canvas API (which I’d never used before), as well as a few general lessons about software development…">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Js13kGames retrospective (part 1)"/>
+  <meta property="og:site_name" content="hgcummings"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="alternate" href="/atom.xml" title="hgcummings" type="application/atom+xml">
+  <link href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+  <link href="/css/highlightjs.css" rel="stylesheet">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <!--[if lt IE 9]><script src="/js/html5.js"></script><![endif]-->
+  
+  
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-43679804-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+</head>
+
+
+<body>
+    <header class="navbar navbar-inverse navbar-static-top" role="banner">
+        <div class="container">
+    <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">hgcummings</a>
+    </div>
+    <nav class="collapse navbar-collapse navbar-right bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+            
+                <li><a href="/about">About</a></li>
+            
+                <li><a href="/archive">Archive</a></li>
+            
+                <li><a href="/categories">Categories</a></li>
+            
+                <li><a href="/tags">Tags</a></li>
+            
+        </ul>
+    </nav>
+</div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <article class="post">
+  <div class="post-content">
+    <div class="page-header">
+      
+  
+    <h1 class="title">Js13kGames retrospective (part 1)</h1>
+  
+
+    </div>
+      
+      <h4>
+          29 September 2013
+          
+      </h4>
+      
+    
+      <p>I recently entered <a href="http://js13kgames.com/" target="_blank" rel="external">Js13kGames</a>, a really well-organised JavaScript coding competition run by <a href="https://twitter.com/end3r" target="_blank" rel="external">Andrzej Mazur</a>. It’s a month-long game development competition with the key restriction that each game’s source code must fit within 13KB (when minified and zipped) and not pull in any external libraries or other resources at runtime.</p>
+<p> I ended up taking 2nd place in the (admittedly not too hotly contested) server category. I learned a lot about JavaScript development, the HTML5 canvas API (which I’d never used before), as well as a few general lessons about software development…</p>
+<a id="more"></a>
+<h3>The good</h3>
+
+<h4>Delivery</h4>
+
+<p>It’s a common problem with software projects to not give sufficient thought to deployment until near the end of the project. It’s something that should be considered throughout the project (and ideally practiced throughout the project, via Continuous Deployment). By the time you get to the end it should be as close to a one-button process as possible.</p>
+<p>The very first thing I did after deciding to enter the competition was to pester the organiser, Andrzej, with some questions about exactly how the game should be packaged for submission (the rules for the server category were slightly complicated). I then created a single grunt task that took care of everything (including bundling, minification, creating a server package with no dev dependencies, zipping up client and server code), and produced the exact things I needed to be able to submit the game:</p>
+<ul>
+<li>An output directory containing just what was needed to deploy the game, with a single command, to nodejitsu</li>
+<li>Zipped client and server files for submission to the competition website (with the console output including the size of each file, so I could quickly check that I was still within the limit)</li>
+</ul>
+<p>Admittedly, the challenge was probably easier here than on most full-scale software projects, but the point still stands that it’s well-worth putting in the effort up-front to avoid a last-minute panic about delivery.</p>
+<p>In the end I stayed up pretty late polishing my game entry, and was rather tired when it came to submitting it. Such was my state of mind that I managed to get the captcha on the submission form (which was something like “9 + 5 = ?”) wrong on my first attempt. It was a good job that I’d made sure it was pretty much impossible to get any other part of the submission process wrong.</p>
+<h4>Testing</h4>
+
+<p>TDD isn’t the first thing that springs to mind when you think of time-boxed coding competitions, and I can’t honestly say that I wrote the entire codebase test-first (or even test-last in places), but this approach was invaluable for parts of it…</p>
+<p>Co-ordinating between shared models running on clients and a server is frightfully complex (see below), and it was only by sketching out the nasty edge cases and concocting tests for them that I had any hope of producing something robust. Having tests in place before trying to write the production code saved a lot of fumbling around in the dark.</p>
+<p>The test coverage level across the codebase is somewhat inconsistent, but it’s close to 100% for all of the shared model code, and has been so since quite early on in the project. Working under tight time constraints for the competition made this testing if anything <em>more</em> worthwhile. As with packaging, having a one-button setup for running tests and static analysis (JSHint caught a few genuine bugs) was very helpful indeed.</p>
+<h3>The bad</h3>
+
+<h4>Time management</h4>
+
+<p>I actually started writing this game as a <a href="http://www.ludumdare.com/" target="_blank" rel="external">Ludum Dare</a> entry (the weekend of the 27th Ludum Dare fell within the month that Js13kGames was running). I didn’t manage to finish something presentable in time for the 48-hour Ludum Dare competition. This was partly due to other time commitments, but also due to failing to prioritise work on the project well enough and getting distracted by things that weren’t on the critical path.</p>
+<p>I actually didn’t find out about the Js13kGames until about halfway through its run, so was still a bit pressed for time. It was only by maintaining a backlog of features, shaping it regularly, and being disciplined about adding new ideas to the backlog rather than allowing them to sidetrack me, that I managed to finish something I felt was sufficiently presentable by the end of the competition.</p>
+<h4>Abstraction</h4>
+
+<p>One of the first things I had to do when re-purposing my game for Js13kGames rather than Ludum Dare was to tear out all of those pesky 3rd-party libraries. Getting rid of <a href="http://jquery.com/" target="_blank" rel="external">jQuery</a> and <a href="http://getbootstrap.com/" target="_blank" rel="external">Twitter Bootstrap</a> was frankly a bit of a chore, as they had been useful productivity boosters. However, removing the 2D graphics library, <a href="https://github.com/GoodBoyDigital/pixi.js" target="_blank" rel="external">pixi.js</a>, turned out to be a big benefit to the project.</p>
+<p>This wasn’t because pixi.js is <em>worse</em> than jQuery or Twitter Bootstrap. Far from it: it’s a very nice little library. It was because I was using it for the wrong reasons: jQuery and Twitter Bootstrap were helpful because they allowed me to do work more quickly with technologies I already know well (JavaScript and the DOM, CSS and HTML). I wasn’t already familiar at all with HTML5 Canvas and had foolishly picked up a library instead of taking the time to learn a bit about the underlying technology.</p>
+<p>As a result, although I familiarised myself with pixi.js’s API docs, I didn’t really understand what the library was doing, and therefore ended up doing some obviously dumb stuff (like effectively redrawing everything each frame). When I removed pixi.js, I spent a modest amount of time researching and reading a few great articles on Canvas (including those from <a href="https://developer.mozilla.org/en-US/docs/Web/Guide/HTML/Canvas_tutorial" target="_blank" rel="external">Mozilla</a>, <a href="http://www.html5rocks.com/en/tutorials/canvas/performance/" target="_blank" rel="external">HTML5 Rocks</a> and <a href="http://diveintohtml5.info/canvas.html" target="_blank" rel="external">Dive Into HTML5</a>), and ended up producing something much better.</p>
+<p>Of course, if you do already have a good understanding of Canvas or WebGL, then pixi.js is a great library for working with these technologies and could save you a lot of time. I would probably use it again now that I know more.</p>
+<p>This was an important reminder for me that you should typically know how things work one level of abstraction below where you’re operating (there’s a <a href="http://www.hanselman.com/blog/PleaseLearnToThinkAboutAbstractions.aspx" target="_blank" rel="external">great blog post on this by Scott Hanselmann</a>), and the highest level libraries that you’re using should only be a productivity tool rather than a crutch or an excuse for not understanding what’s going on at a slightly lower-level.</p>
+<p></p><h3>The ugly</h3><a href="/2013/09/30/Js13kgames-retrospective-part-2/">Continued in the following post</a><p></p>
+
+    
+    
+    <footer>
+      
+        <div class="navbar">
+          
+  <ul class="nav nav-pills navbar-left">
+    <li><a class="navbar-brand" href="/categories"><i class="icon-folder-open"> Category: </i></a></li>
+  
+    <li><a href="/categories#General-ref">General <span class="badge">3</span></a></li>
+  
+  </ul>
+
+          
+<ul class="nav nav-pills navbar-right">
+    <li><a class="navbar-brand" href="/tags"><i class="icon-tags"> Tags: </i></a></li>
+    
+    <li><a href="/tags#competitions-ref">competitions <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#gamedev-ref">gamedev <span class="badge">3</span></a></li>
+    
+</ul>
+
+        </div>
+      
+      <div class="clearfix"></div>
+    </footer>
+    
+  </div>
+</article>
+
+
+<hr>
+<ul class="pager">
+    <li class="previous">
+        <a href="/2013/08/31/LiveReloading-shared-client-and-server-side-code/">&larr; Previous</a>
+    </li>
+    <li><a href="/archive">Archive</a></li>
+    <li class="next">
+        <a href="/2013/09/30/Js13kgames-retrospective-part-2/">Next &rarr;</a>
+    </li>
+</ul>
+<hr>
+
+<section id="comment">
+  <h1 class="title">Comments</h1>
+
+  
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+  
+</section>
+
+
+        </div>
+        <hr>
+        <footer><p>
+  
+  &copy; 2013&mdash;2015 Harry Cummings
+  
+  (built using <a href="http://zespia.tw/hexo/" target="_blank" title="Hexo - Node.js blog framework">Hexo</a>
+    and <a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a>)
+</p></footer>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'hgcblog';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+    </div>
+</body>
+</html>

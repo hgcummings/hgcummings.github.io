@@ -1,0 +1,255 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Continuous deployment to Heroku with Travis CI | hgcummings</title>
+  <meta name="author" content="Harry Cummings">
+  
+  <meta name="description" content="In the previous post we discussed improving the speed of Travis CI builds by caching Maven dependencies in S3. In this post we’ll look at customising ">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Continuous deployment to Heroku with Travis CI"/>
+  <meta property="og:site_name" content="hgcummings"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="alternate" href="/atom.xml" title="hgcummings" type="application/atom+xml">
+  <link href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+  <link href="/css/highlightjs.css" rel="stylesheet">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <!--[if lt IE 9]><script src="/js/html5.js"></script><![endif]-->
+  
+  
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-43679804-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+</head>
+
+
+<body>
+    <header class="navbar navbar-inverse navbar-static-top" role="banner">
+        <div class="container">
+    <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">hgcummings</a>
+    </div>
+    <nav class="collapse navbar-collapse navbar-right bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+            
+                <li><a href="/about">About</a></li>
+            
+                <li><a href="/archive">Archive</a></li>
+            
+                <li><a href="/categories">Categories</a></li>
+            
+                <li><a href="/tags">Tags</a></li>
+            
+        </ul>
+    </nav>
+</div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <article class="post">
+  <div class="post-content">
+    <div class="page-header">
+      
+  
+    <h1 class="title">Continuous deployment to Heroku with Travis CI</h1>
+  
+
+    </div>
+      
+      <h4>
+          28 August 2014
+          
+      </h4>
+      
+    
+      <p>In <a href="/2014/08/26/Caching-Travis-CI-dependencies-in-S3/">the previous post</a> we discussed improving the speed of Travis CI builds by caching Maven dependencies in S3. In this post we’ll look at customising deployment to Heroku from Travis CI.</p>
+<p>Travis CI supports <a href="http://docs.travis-ci.com/user/deployment/heroku/" target="_blank" rel="external">deployment to Heroku with very little config</a>. However, this approach wasn’t quite right for me for a couple of reasons:</p>
+<ul>
+<li>I wanted to deploy to Heroku during my build rather than at the end, so that I could run integration tests against my staging site</li>
+<li>I wanted the option of pushing the deployment to live in the case where the build succeeded</li>
+</ul>
+<p>I also thought it might be possible to speed up the build a bit further by not re-building the application as part of the Heroku deploy, and not downloading the extra dependencies required by Travis CI’s Heroku deployment process.</p>
+<h2 id="Requirements">Requirements</h2><p>Here’s the detailed order of events I want to happen when I push a new version of the code:</p>
+<ul>
+<li>Build the application and run unit tests</li>
+<li>Deploy the application to Stage and run integration tests against it</li>
+<li>Mark the build as a success or failure based on the test results</li>
+<li>If the build is successful, then deploy the application to Live</li>
+</ul>
+<h2 id="The_Travis_CI_build_lifecycle">The Travis CI build lifecycle</h2><p>The <a href="http://docs.travis-ci.com/user/build-lifecycle/" target="_blank" rel="external">Travis CI build lifecycle</a> consists of the following steps:</p>
+<ul>
+<li><code>before_install</code></li>
+<li><code>install</code></li>
+<li><code>before_script</code></li>
+<li><code>script</code></li>
+<li><code>after_success</code> or <code>after_failure</code></li>
+<li><code>after_script</code></li>
+<li><code>deploy</code></li>
+<li><code>after_deploy</code></li>
+</ul>
+<p>Each of these steps can be overridden by a custom script, except for the deploy step, which can only be configured to use one of Travis CI’s pre-defined deployment options.</p>
+<p>To meet my requirements above, I’d need to deploy to Stage as part of the <code>script</code> step in order to pass or fail the build as a result, so can’t make use of the Heroku deployment feature provided by Travis CI. I could make use of this for deploying to Live, however having already built and deployed the application on Stage, it would be nice to push the built artifact to Live rather than having to build it again.</p>
+<h2 id="Using_the_Heroku_API">Using the Heroku API</h2><p>Fortunately, Heroku support this exact scenario via its HTTP API. The process is as follows:</p>
+<ul>
+<li>Create a Heroku slug containing your application</li>
+<li>Deploy that slug to stage</li>
+<li>Deploy the same slug to Live</li>
+</ul>
+<div class="well"><small>It’s worth noting some of the reasons that git deployments are the standard for Heroku: Of course it ties in very nicely with the development workflow in some scenarios, but in my case I’m already kicking off the Travis CI build by a simple git push.<br>More significantly, it means that the application is built on the exact same environment that it will run, reducing the scope for odd environmental differences causing problems with the application. However, I’m happy that running my automated tests against the staging server would catch any problems like this.</small></div>
+
+<h3 id="Creating_a_slug">Creating a slug</h3><p>A slug is just an archive containing your compiled application. Slugs are quite central to the Heroku build/deploy process but you don’t normally see them if using Heroku’s standard git-based deployment, since they are created and released automatically for you. Here’s what Heroku does for you when you push your code via git:</p>
+<ul>
+<li>Determines which build pack to use based on your project (e.g. the Java buildpack if you have a <code>pom.xml</code>)</li>
+<li>Creates a slug using the appropriate buildpack</li>
+<li>Deploys this slug to your application</li>
+</ul>
+<p>We’re kicking off our deployment from our CI server, so have already just compiled the application. This makes it easy to create a slug for our code. We just need a tar archive with all the contents under the <code>/app</code> path (which will be the base path of our application on the Heroku server):</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">"Preparing slug contents"</span></span><br><span class="line">mkdir app</span><br><span class="line">cp -r ./exwhy-web/target/classes ./app/classes</span><br><span class="line">cp -r ./exwhy-web/target/lib ./app/lib</span><br><span class="line"> </span><br><span class="line"><span class="built_in">echo</span> <span class="string">"Creating slug archive"</span></span><br><span class="line">tar -czf slug.tgz ./app</span><br></pre></td></tr></table></figure>
+<p>The next stage is to create a slug containing this archive. First we call the Heroku API to create a new slug. This returns an S3 URL to which we upload our archive. Lets look at the slug creation first:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">"Creating slug object"</span></span><br><span class="line">_heroku_deploy_apiKey=`<span class="built_in">echo</span> <span class="string">":<span class="variable">$&#123;HEROKU_API_KEY&#125;</span>"</span> | base64`</span><br><span class="line">_heroku_deploy_createSlugResponse=$(curl -X POST \</span><br><span class="line">-H <span class="string">"Content-Type: application/json"</span> \</span><br><span class="line">-H <span class="string">"Accept: application/vnd.heroku+json; version=3"</span> \</span><br><span class="line">-H <span class="string">"Authorization: <span class="variable">$&#123;_heroku_deploy_apiKey&#125;</span>"</span> \</span><br><span class="line"><span class="operator">-d</span> <span class="string">'&#123;"process_types":&#123;"web": "java $JAVA_OPTS -cp ./classes:./lib/* io.hgc.myapp.web.Application"&#125;&#125;'</span> \</span><br><span class="line">-n https://api.heroku.com/apps/<span class="variable">$&#123;HEROKU_STAGE&#125;</span>/slugs)</span><br></pre></td></tr></table></figure>
+<p>We transform our API key into the right format and then make a <code>POST</code> to <code>https://api.heroku.com/apps/appName/slugs</code> to create a new slug. One thing to note here is request data (the <code>-d</code> parameter), specifying the web process. When using git-based deployment you would normally specify your processes in a Procfile. This file isn’t built into the slug but becomes part of its metadata, so when creating a slug from scratch we have to specify that metadata ourselves rather than using a Procfile.</p>
+<p>The response from the above request will look something like the following:<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">"blob"</span>: &#123;</span><br><span class="line">    <span class="string">"method"</span>: <span class="string">"put"</span>,</span><br><span class="line">    <span class="string">"url"</span>: <span class="string">"https:\/\/s3-external-1.amazonaws.com\/herokuslugs\/heroku.com\/v1\/some-guid?credentials"</span></span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="string">"buildpack_provided_description"</span>: <span class="literal">null</span>,</span><br><span class="line">  <span class="string">"commit"</span>: <span class="literal">null</span>,</span><br><span class="line">  <span class="string">"created_at"</span>: <span class="string">"2014-08-25T08:32:15Z"</span>,</span><br><span class="line">  <span class="string">"id"</span>: <span class="string">"9f6f132a-5a87-423b-b677-84c7a35a42c5"</span>,</span><br><span class="line">  <span class="string">"process_types"</span>: &#123;</span><br><span class="line">    <span class="string">"web"</span>: <span class="string">"java $JAVA_OPTS -cp .\/classes:.\/lib\/* io.hgc.myapp.web.Application"</span></span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="string">"size"</span>: <span class="literal">null</span>,</span><br><span class="line">  <span class="string">"updated_at"</span>: <span class="string">"2014-08-25T08:32:15Z"</span>,</span><br><span class="line">  <span class="string">"stack"</span>: &#123;</span><br><span class="line">    <span class="string">"id"</span>: <span class="string">"7e04461d-ec81-4bdd-8b37-b69b320a9f83"</span>,</span><br><span class="line">    <span class="string">"name"</span>: <span class="string">"cedar"</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>The important things for us are the ID of the slug and the blob URL. First, we need to extract these from the response (<code>grep</code> is really not an appropriate tool for parsing JSON, but the response is very simple so we get away with it):<br><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="keyword">function</span> _heroku_deploy_parseField &#123;</span><br><span class="line">    <span class="built_in">echo</span> <span class="operator">-ne</span> <span class="variable">$2</span> | grep -o <span class="string">"\"<span class="variable">$1</span>\"\s*:\s*\"[^\"]*\""</span> | head -<span class="number">1</span> | cut <span class="operator">-d</span> <span class="string">'"'</span> <span class="operator">-f</span> <span class="number">4</span></span><br><span class="line">&#125;</span><br><span class="line">_heroku_deploy_blobUrl=$(_heroku_deploy_parseField <span class="string">"url"</span> <span class="string">"'<span class="variable">$&#123;_heroku_deploy_createSlugResponse&#125;</span>'"</span>)</span><br><span class="line">_heroku_deploy_blobHttpMethod=$(_heroku_deploy_parseField <span class="string">"method"</span> <span class="string">"'<span class="variable">$&#123;_heroku_deploy_createSlugResponse&#125;</span>'"</span>)</span><br><span class="line">_heroku_deploy_slugId=$(_heroku_deploy_parseField <span class="string">"id"</span> <span class="string">"'<span class="variable">$&#123;_heroku_deploy_createSlugResponse&#125;</span>'"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>Next we use the URL to upload our slug contents. The only wrinkle here is to make sure we put the HTTP method into uppercase, else the AWS signature check fails:<br><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">"Uploading slug archive"</span></span><br><span class="line">curl -X <span class="variable">$&#123;_heroku_deploy_blobHttpMethod^^&#125;</span> -H <span class="string">"Content-Type:"</span> --data-binary @slug.tgz <span class="variable">$&#123;_heroku_deploy_blobUrl&#125;</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="Deploying_the_slug_to_stage">Deploying the slug to stage</h3><p>Finally, we create a new release of our application using the ID of our slug:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="keyword">function</span> deployToHeroku &#123; <span class="comment">#Args: application name</span></span><br><span class="line">    curl -X POST \</span><br><span class="line">    -H <span class="string">"Content-Type: application/json"</span> \</span><br><span class="line">    -H <span class="string">"Accept: application/vnd.heroku+json; version=3"</span> \</span><br><span class="line">    -H <span class="string">"Authorization: <span class="variable">$&#123;_heroku_deploy_apiKey&#125;</span>"</span> \</span><br><span class="line">    <span class="operator">-d</span> <span class="string">"&#123;\"slug\":\"<span class="variable">$&#123;_heroku_deploy_slugId&#125;</span>\"&#125;"</span> \</span><br><span class="line">    -n https://api.heroku.com/apps/<span class="variable">$1</span>/releases</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> <span class="string">"Deploying slug to stage"</span></span><br><span class="line">deployToHeroku <span class="variable">$&#123;HEROKU_STAGE&#125;</span></span><br></pre></td></tr></table></figure>
+<h3 id="Deploying_the_slug_to_Live">Deploying the slug to Live</h3><p>All we need to do to push the same slug to Live is to call <code>deployToHeroku</code> again with a different app name.</p>
+<p>Putting this all together, we use the script in our .travis.yml file as follows:</p>
+<figure class="highlight"><table><tr><td class="code"><pre><span class="line">script: mvn clean install &#38;&#38; source ./build/heroku_deploy.sh &#38;&#38; mvn test -Dtest.server=http://$HEROKU_STAGE.herokuapp.com&#10;after_success: deployToHeroku $HEROKU_LIVE&#10;env:&#10;  global:&#10;  - HEROKU_STAGE: myapp-test&#10;  - HEROKU_LIVE: myapp&#10;  ...</span><br></pre></td></tr></table></figure>
+<p>A couple of things to note here: Firstly, the <code>test.server</code> parameter is a custom parameter used by my test code, but you would probably want to do something similar if running tests against a staging server. Secondly, the various commands in the <code>script</code> step are all combined into one line with <code>&amp;&amp;</code>, rather than placed on separate lines. This is to make our build fail fast as soon as any one of them returns an error code, as described in the Travis CI documentation on <a href="http://docs.travis-ci.com/user/customizing-the-build/#Customizing-the-Build-Step" target="_blank" rel="external">customising the build</a>.</p>
+<h2 id="Running_the_correct_Java_version">Running the correct Java version</h2><p>All of the above works perfectly, except for one thing: My application is built using Java 8, and the Heroku servers run Java 6 by default. When using Heroku’s git-based deployment, we would address this by adding a <code>system.properties</code> file in our project root containing <code>java.runtime.version=1.8</code>. However, like the ProcFile, this isn’t something that’s used at runtime but at build time in creating our slug.</p>
+<p>I spent a while digging through the code of the <a href="https://github.com/heroku/heroku-buildpack-java/blob/master/bin/compile" target="_blank" rel="external">Heroku Java buildpack</a> and <a href="https://github.com/heroku/heroku-buildpack-jvm-common/blob/master/bin/java" target="_blank" rel="external">JVM common buildpack functions</a> to see how they worked. They actually download OpenJDK and include it in the slug archive. They’re also pretty complicated due to being quite general-purpose.</p>
+<p>I could have imitated the relevant parts of these scripts making some simplifying assumptions, or downloaded and used the JVM common buildpack functions directly in my script. However, it occurred to me that there’s a much simpler way to get hold of a JRE of the right version for our application: We can just re-use the JDK from our build environment! All we need to do is add a couple of lines to our slug creation script:</p>
+ <figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">cp -r <span class="variable">$&#123;JAVA_HOME&#125;</span>/jre ./app/.jre</span><br><span class="line">mkdir <span class="string">"app/.profile.d"</span> &amp;&amp; <span class="built_in">echo</span> <span class="string">'export PATH="/app/.jre/bin:$PATH"'</span> &gt;&gt; app/.profile.d/java.sh</span><br></pre></td></tr></table></figure>
+<p> The second line adds a script under the <code>.profile.d</code> folder, which means it will run on startup. All the script does is add the JRE’s bin folder to the front of the <code>$PATH</code> so that it gets used in preference to the JDK 1.6 installed on the system.</p>
+<h2 id="Conclusion">Conclusion</h2><p>With the changes in this post and <a href="/2014/08/26/Caching-Travis-CI-dependencies-in-S3/">the previous one</a>, my build is now working exactly as I wanted, and much faster than before, down from its original time of 5-8 minutes to more like 1-2 minutes (usually closer to one minute). The most variable part of the build now is waiting for the new version of the application to start up on the staging server in order to run tests against it, which can take anything from ~20s to about a minute. However, the build doesn’t waste any time waiting for Heroku to build the application from scratch.</p>
+<p>You can <a href="https://github.com/hgcummings/exwhy-spring/blob/master/build/heroku_deploy.sh" target="_blank" rel="external">find the complete and final script on GitHub</a> in the context of a demo Java application.</p>
+
+    
+    
+    <footer>
+      
+        <div class="navbar">
+          
+  <ul class="nav nav-pills navbar-left">
+    <li><a class="navbar-brand" href="/categories"><i class="icon-folder-open"> Category: </i></a></li>
+  
+    <li><a href="/categories#Shell-ref">Shell <span class="badge">2</span></a></li>
+  
+  </ul>
+
+          
+<ul class="nav nav-pills navbar-right">
+    <li><a class="navbar-brand" href="/tags"><i class="icon-tags"> Tags: </i></a></li>
+    
+    <li><a href="/tags#bash-ref">bash <span class="badge">2</span></a></li>
+    
+    <li><a href="/tags#heroku-ref">heroku <span class="badge">2</span></a></li>
+    
+    <li><a href="/tags#java-ref">java <span class="badge">2</span></a></li>
+    
+    <li><a href="/tags#maven-ref">maven <span class="badge">2</span></a></li>
+    
+    <li><a href="/tags#travis-ci-ref">travis-ci <span class="badge">2</span></a></li>
+    
+</ul>
+
+        </div>
+      
+      <div class="clearfix"></div>
+    </footer>
+    
+  </div>
+</article>
+
+
+<hr>
+<ul class="pager">
+    <li class="previous">
+        <a href="/2014/08/26/Caching-Travis-CI-dependencies-in-S3/">&larr; Previous</a>
+    </li>
+    <li><a href="/archive">Archive</a></li>
+    <li class="next disabled">
+        <a>Next &rarr;</a>
+    </li>
+</ul>
+<hr>
+
+<section id="comment">
+  <h1 class="title">Comments</h1>
+
+  
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+  
+</section>
+
+
+        </div>
+        <hr>
+        <footer><p>
+  
+  &copy; 2013&mdash;2015 Harry Cummings
+  
+  (built using <a href="http://zespia.tw/hexo/" target="_blank" title="Hexo - Node.js blog framework">Hexo</a>
+    and <a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a>)
+</p></footer>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'hgcblog';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+    </div>
+</body>
+</html>

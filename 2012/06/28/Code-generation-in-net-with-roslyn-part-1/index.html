@@ -1,0 +1,216 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Code generation in .NET with Roslyn (part 1) | hgcummings</title>
+  <meta name="author" content="Harry Cummings">
+  
+  <meta name="description" content="IntroductionThis post is the first in a series on code generation on the .NET platform. This is a huge subject area and there are a bewildering number of relevant libraries and tools that are useful for this purpose. I will make an effort to mention the most important third-party options (particularly where they’ve pre-empted Microsoft’s efforts), and may revisit some of them in future posts. However, for this series I will focus on those libraries and tools that are part of the .NET framework itself, or will be included in future versions. In particular, I’ll explore building code generation tools using Microsoft’s in-development compiler-as-a-service project, code-named “Roslyn“.
+In this post I’ll briefly discuss what we mean by code generation, before going through some of the current tools and libraries for code generation in .NET, along with their shortcomings. I’ll also introduce Roslyn and explain why it initially caught my interest as a potentially useful library for code generation. Subsequent posts in this series will cover what I learned about using Roslyn and creating Visual Studio extensions, by looking at a specific WCF-related code generation scenario.">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Code generation in .NET with Roslyn (part 1)"/>
+  <meta property="og:site_name" content="hgcummings"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="alternate" href="/atom.xml" title="hgcummings" type="application/atom+xml">
+  <link href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+  <link href="/css/highlightjs.css" rel="stylesheet">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <!--[if lt IE 9]><script src="/js/html5.js"></script><![endif]-->
+  
+  <link rel="canonical" href="http://www.softwire.com/blog/2012/06/28/code-generation-in-net-with-the-roslyn-ctp-part-1/" />
+  
+  
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-43679804-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+</head>
+
+
+<body>
+    <header class="navbar navbar-inverse navbar-static-top" role="banner">
+        <div class="container">
+    <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">hgcummings</a>
+    </div>
+    <nav class="collapse navbar-collapse navbar-right bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+            
+                <li><a href="/about">About</a></li>
+            
+                <li><a href="/archive">Archive</a></li>
+            
+                <li><a href="/categories">Categories</a></li>
+            
+                <li><a href="/tags">Tags</a></li>
+            
+        </ul>
+    </nav>
+</div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <article class="post">
+  <div class="post-content">
+    <div class="page-header">
+      
+  
+    <h1 class="title">Code generation in .NET with Roslyn (part 1)</h1>
+  
+
+    </div>
+      
+      <h4>
+          28 June 2012
+          
+          <br/>
+          <small>
+              This post was originally published on <a href="http://www.softwire.com/blog/2012/06/28/code-generation-in-net-with-the-roslyn-ctp-part-1/" target="_blank">the Softwire blog</a>
+          </small>
+          
+      </h4>
+      
+    
+      <h3 id="Introduction">Introduction</h3><p>This post is the first in a series on code generation on the .NET platform. This is a huge subject area and there are a bewildering number of relevant libraries and tools that are useful for this purpose. I will make an effort to mention the most important third-party options (particularly where they’ve pre-empted Microsoft’s efforts), and may revisit some of them in future posts. However, for this series I will focus on those libraries and tools that are part of the .NET framework itself, or will be included in future versions. In particular, I’ll explore building code generation tools using Microsoft’s in-development compiler-as-a-service project, code-named “<a href="http://msdn.microsoft.com/en-gb/roslyn" target="_blank" rel="external">Roslyn</a>“.</p>
+<p>In this post I’ll briefly discuss what we mean by code generation, before going through some of the current tools and libraries for code generation in .NET, along with their shortcomings. I’ll also introduce Roslyn and explain why it initially caught my interest as a potentially useful library for code generation. Subsequent posts in this series will cover what I learned about using Roslyn and creating Visual Studio extensions, by looking at a specific WCF-related code generation scenario.<br><a id="more"></a></p>
+<h4 id="What_is_Roslyn?">What is Roslyn?</h4><p>Roslyn is the codename for a Microsoft project to develop a C# compiler implemented in managed (i.e. .NET) code, which exposes an API allowing you to hook in to various steps of the compilation process. CTP stands for Community Technology Preview (Microsoft’s terminology for a beta version): This is an opportunity for developers to get a sneak preview of the features that will be available in future releases of .NET &amp; Visual Studio, and for Microsoft to gather early feedback on the direction they’re taking. The initial CTP was released back in October. Since then, Microsoft have be incorporating feedback and adding new functionality, culminating in a <a href="http://blogs.msdn.com/b/jasonz/archive/2012/06/05/announcing-microsoft-roslyn-june-2012-ctp.aspx" target="_blank" rel="external">second CTP released this month</a>.</p>
+<h4 id="What_is_code_generation?">What is code generation?</h4><p>Code generation, at least for the purposes of this series, is any automated process for writing source code. It isn’t what happens at compile-time (which is more to do with making human-readable code machine-readable) or dynamic meta-programming at runtime (e.g. using reflection), and happens at a stage before either of these, sometimes referred to as design-time. In fact, if you’re a .NET programmer you’ve probably already used code generation in one way or another if you’ve used any of the Visual Studio ‘designer’ tools (such as those for web forms, XML datasets or Entity Framework models). These tools</p>
+<h3 id="Choosing_a_code_generation_process">Choosing a code generation process</h3><p>When performing code generation, you will always have: Some input, a model for working with that input, and a model for generating your output code. The input for code generation can be almost anything, but is often either XML (e.g. a WSDL service definition or a dataset schema) or some existing .NET types (anything from an individual interface declaration to an entire class library). It’s the latter case that I’m particularly interested in and will be considering for the rest of this section.</p>
+<h4 id="Choosing_an_input_model">Choosing an input model</h4><p>The first decision is whether you want the input to your code generator to be raw source code, or a compiled assembly. The latter allows you to make use of powerful (and perhaps more familiar) APIs to work with the input, such as the .NET framework’s System.Reflection namespace. The main downside to this approach is that your code generator can’t run until the source types have been compiled, which can make it difficult to fit the required code generation step into your build process. This can be particularly problematic if the types that you’re outputting are closely related to the input types (which will often be the case) and conceptually belong in the same library.</p>
+<p>If you take source code as your input model then the options are rather limited. In some very specific cases it might make sense to work on source code as if it’s plain text, but this is obviously not feasible for anything other than the most trivial input code. Another option is <a href="http://msdn.microsoft.com/en-us/library/envdte(v=VS.100).aspx" target="_blank" rel="external">EnvDTE</a>, an assembly-wrapped COM library for Visual Studio automation that allows you to access Visual Studio’s model of the source code in your project. This is a very powerful approach, but COM automation libraries are often a bit painful to work with.</p>
+<h4 id="Choosing_an_output_model">Choosing an output model</h4><p>The options here are also fairly limited. The simplest and most obvious option is to treat your generated code as just a bunch of text, writing to a StringBuilder or TextWriter. This is a more reasonable approach than in the case of the input model, but it’s still error-prone and the lack of strong-typing can make your code generation logic difficult to maintain. There’s a .NET library that attempts to address these issues called CodeDOM.</p>
+<h4 id="CodeDOM">CodeDOM</h4><p>.NET includes the CodeDOM namespace for building and manipulating source code through a strongly-typed Document Object Model (much as you might manipulate an HTML DOM using Javascript). The CodeDOM API is reasonably discoverable and contains classes to represent everything from whole assemblies (i.e. <a href="http://msdn.microsoft.com/en-us/library/system.codedom.codecompileunit.aspx" target="_blank" rel="external">CodeCompileUnit</a>) down to individual expressions (e.g. <a href="http://msdn.microsoft.com/en-us/library/system.codedom.codeobjectcreateexpression.aspx" target="_blank" rel="external">CodeObjectCreateExpression</a>, <a href="http://msdn.microsoft.com/en-us/library/system.codedom.codevariablereferenceexpression.aspx" target="_blank" rel="external">CodeVariableReferenceExpression</a>). It’s also quite well documented on MSDN (see <a href="http://msdn.microsoft.com/en-us/library/y2k85ax6.aspx" target="_blank" rel="external">using the CodeDOM</a> for a good starting point). It works well for generating code with lots of structure and not much logic (making it quite suitable for the example discussed above of generating classes for an XSD schema).</p>
+<p>Some drawbacks of CodeDOM are:</p>
+<ul>
+<li>It’s extremely verbose (as you might expect) and while quite good for generating structure it can be pretty painful for generating logic</li>
+<li>It hasn’t really moved with the times and doesn’t have any way of expressing some newer language features (it hasn’t seen any significant updates since .NET 2.0 and the corresponding versions of C# and VB)</li>
+<li>It’s intentionally language agnostic, meaning it doesn’t have a strongly-typed way of expressing some of the more useful language-specific features, although it also has some bizarre omissions like unary operators (e.g. boolean inversion), breaks, continues, switches, while loops etc. (see <a href="http://blogs.msdn.com/b/bclteam/archive/2005/03/16/396915.aspx" target="_blank" rel="external">Language Features which can’t be expressed using CodeDOM</a> for a list of common grievances)</li>
+</ul>
+<p>Where you need to output something CodeDOM has no way of expressing, you can use a <a href="http://msdn.microsoft.com/en-us/library/system.codedom.codesnippetexpression.aspx" target="_blank" rel="external">CodeSnippetExpression</a>, which just takes a string that will be output exactly as provided. This obviously ties your generated CodeDOM model to a specific language, which is unlikely to be a problem for a given project. However, if you used CodeSnippetExpressions extensively, you also lose most of the benefits of CodeDOM over a plain text model.</p>
+<p>There are a few third-party projects that attempt to make CodeDOM a bit nicer to work with, by providing more succinct wrappers around the API. The most promising of these is <a href="http://www.codeproject.com/KB/cs/refly.aspx" target="_blank" rel="external">Refly</a>. <a href="http://linq2codedom.codeplex.com/" target="_blank" rel="external">Expressions to CodeDOM</a> looks interesting too, although I haven’t used it myself.</p>
+<h4 id="Introducing_Roslyn">Introducing Roslyn</h4><p>We will discuss Roslyn in much more detail in the next post, but I’ll briefly explain why it’s interesting for code generation. As a compiler it obviously includes a parser, and the API allows you to to generate a ‘syntax tree’ from your source code (a syntax tree being a strongly-typed structure of objects representing your source code). You can also go in the opposite direction, generating source code from a syntax tree that you have built (either from scratch or, more likely, based on another tree you generated from source code). This is particularly appealing as it allows you to work with the same, strongly-typed, model for both input and output. This is something that isn’t quite possible with any of the options discussed above.</p>
+<p>In the following post, I’ll discuss how I got on with using Roslyn to implement a fairly basic code generation scenario.</p>
+
+    
+    
+    <footer>
+      
+        <div class="navbar">
+          
+  <ul class="nav nav-pills navbar-left">
+    <li><a class="navbar-brand" href="/categories"><i class="icon-folder-open"> Category: </i></a></li>
+  
+    <li><a href="/categories#.NET-ref">.NET <span class="badge">3</span></a></li>
+  
+  </ul>
+
+          
+<ul class="nav nav-pills navbar-right">
+    <li><a class="navbar-brand" href="/tags"><i class="icon-tags"> Tags: </i></a></li>
+    
+    <li><a href="/tags#c#-ref">c# <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#metaprogramming-ref">metaprogramming <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#roslyn-ref">roslyn <span class="badge">3</span></a></li>
+    
+</ul>
+
+        </div>
+      
+      <div class="clearfix"></div>
+    </footer>
+    
+  </div>
+</article>
+
+
+<hr>
+<ul class="pager">
+    <li class="previous">
+        <a href="/2012/03/02/Getting-on-with-ebooks/">&larr; Previous</a>
+    </li>
+    <li><a href="/archive">Archive</a></li>
+    <li class="next">
+        <a href="/2012/07/05/Code-generation-in-net-with-roslyn-part-2/">Next &rarr;</a>
+    </li>
+</ul>
+<hr>
+
+<section id="comment">
+  <h1 class="title">Comments</h1>
+
+  
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+  
+</section>
+
+
+        </div>
+        <hr>
+        <footer><p>
+  
+  &copy; 2013&mdash;2015 Harry Cummings
+  
+  (built using <a href="http://zespia.tw/hexo/" target="_blank" title="Hexo - Node.js blog framework">Hexo</a>
+    and <a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a>)
+</p></footer>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'hgcblog';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+    </div>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Js13kGames retrospective (part 2) | hgcummings</title>
+  <meta name="author" content="Harry Cummings">
+  
+  <meta name="description" content="Continuing from the previous post, I’m looking at some of the lessons learned from my entry in the Js13kGames coding competition.">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Js13kGames retrospective (part 2)"/>
+  <meta property="og:site_name" content="hgcummings"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="alternate" href="/atom.xml" title="hgcummings" type="application/atom+xml">
+  <link href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+  <link href="/css/highlightjs.css" rel="stylesheet">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <!--[if lt IE 9]><script src="/js/html5.js"></script><![endif]-->
+  
+  
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-43679804-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+</head>
+
+
+<body>
+    <header class="navbar navbar-inverse navbar-static-top" role="banner">
+        <div class="container">
+    <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">hgcummings</a>
+    </div>
+    <nav class="collapse navbar-collapse navbar-right bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+            
+                <li><a href="/about">About</a></li>
+            
+                <li><a href="/archive">Archive</a></li>
+            
+                <li><a href="/categories">Categories</a></li>
+            
+                <li><a href="/tags">Tags</a></li>
+            
+        </ul>
+    </nav>
+</div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <article class="post">
+  <div class="post-content">
+    <div class="page-header">
+      
+  
+    <h1 class="title">Js13kGames retrospective (part 2)</h1>
+  
+
+    </div>
+      
+      <h4>
+          30 September 2013
+          
+      </h4>
+      
+    
+      <p><a href="/2013/09/29/Js13kgames-retrospective-part-1/">Continuing from the previous post</a>, I’m looking at some of the lessons learned from <a href="http://js13kgames.com/entries/runrun-rabbit" target="_blank" rel="external">my entry in the Js13kGames coding competition</a>.</p>
+<a id="more"></a>
+<h3>The ugly</h3>
+
+<h4>Concurrency</h4>
+
+<p>Concurrency is hard, and brings with it the potential for whole classes of bugs you’ll never encounter in single-process systems, including devious Heisenbugs that might occur one time in a thousand. Getting a server and two (or more) clients to co-ordinate with each other and agree on consistent state is an order of magnitude more difficult than writing code that runs on a single machine.</p>
+<p>I didn’t have too much of a problem with the typical multi-threading bugbear of shared mutable state, since my threads were necessarily isolated by running on different machines with minimal communication between them. However, getting them to all agree on the outcome of a pseudo-random quasi-chaotic user-interactive process (i.e. my game) was very hard indeed. Anything that made the system even slightly non-deterministic (e.g. timing differences, floating point errors, order of execution) could cause them to dramatically diverge. I spent a long time debugging these sorts of issues and fixing subtle bugs.</p>
+<p>The final blow to this class of bugs was enforcing better separation of concerns in the clients, by having them update their state in lock-step with the server at a fixed time interval, and worrying about smoothing out the animations in the view (which calculated its own less precise but more frequently updated model of the current state). Everything suddenly became much easier after making this change, which was actually quite simple to do (although I’d missed the SoC opportunity before, I had at least kept my code reasonably modular).</p>
+<p>The other big challenge was to make the server authoritative while allowing the clients to carry on the simulation for the mainline case where the server never tells them anything they disagree with (as discussed in <a href="http://www.gabrielgambetta.com/fpm1.html" target="_blank" rel="external">Gabriel Gambetta’s <em>Fast-paced Multiplayer</em> series</a>). Compensating for things working out differently (e.g. when two players perform conflicting actions and the server picks a winner) can be very complex and have a lot of knock-on effects. Only mini integration tests covering most of the shared model code made this tractable. I still have a few hypothetical scenarios to address on my to-do list though, which I believe will currently go wrong some tiny proportion of the time.</p>
+<h4>That fox sprite</h4>
+
+<p>I was rather pleased with the little purple bunnies that populated my game world, but really struggled to get the artwork for the foxes right. I had an idea that I wanted the fox sprite to be more angular than the rounded bunny sprite, so that it looked aggressive. However, it also needed to look larger than the rabbit sprite, which was already rather fat and round. Most of my attempts ended up looking a bit like a cat, or an enormous mouse, or simply no kind of animal at all.</p>
+<p>Keeping in mind my issues with prioritisation (see above), I ended up settling for something that would do, and getting on with the rest of the game. However, the first thing I did after the competition was to redraw the fox sprite from scratch. You can compare the two versions below. I’m still not quite 100% pleased with the current version, but I’m much happier with how it fits in with the rest of the game’s artwork, and think it looks suitably fox-like. <div style="width: 640px; margin: auto"><h5>Before</h5><img src="/images/20130930/fox_old.png" class="img-rounded"><h5>After</h5><img src="/images/20130930/fox_new.png" class="img-rounded"></div></p>
+<h3>What’s next</h3>
+
+<p>I’ve carried on working on the game since the competition ended, and have started updating <a href="http://runrunrabbit.jit.su/" target="_blank" rel="external">the live deployed version</a> now that judging is over. Apart from updating the fox sprite, I’ve also…</p>
+<ul>
+<li>Fixed a few interface bugs raised by my colleagues at <a href="http://www.softwire.com" target="_blank" rel="external">Softwire</a> who were kind enough to playtest the game</li>
+<li>Introduced more core gameplay features</li>
+<li>Improved handling of network play edge-cases</li>
+<li>Written a passable AI opponent for single play</li>
+<li>Aided accessibility (in particular, colour-blind users)</li>
+</ul>
+<h4>Still to come</h4>
+
+<p>There are a fair few things on my TODO list, including:</p>
+<ul>
+<li>Yet more concurrency edge cases (see above)</li>
+<li>Four-player multiplayer</li>
+<li>A lobby system and nicknames to allow people to co-ordinate games between friends</li>
+<li>Improvements to the AI</li>
+<li>Support for mobile/tablet platforms</li>
+<li>More paranoid cheat prevention</li>
+<li>Additional core gameplay features</li>
+<li>Audio (SFX and music)</li>
+</ul>
+<p>Once I’ve worked through some of these, I also hope to market the game to some extent (possibly as part of the Ludum Dare <a href="http://www.ludumdare.com/compo/2013/09/27/october-challenge-2013/" target="_blank" rel="external">October Challenge</a>). I’ve really enjoyed taking part in this year’s Js13kGames and previous Ludum Dares, and - as brilliantly illustrated in <a href="http://www.mugshotgames.com/2013/08/publishing-your-first-game-in-40-not-so-easy-steps/" target="_blank" rel="external">this recent article by Steve Yap</a> - I suspect I’ve just scratched the surface of what you can learn from this kind of project.</p>
+
+    
+    
+    <footer>
+      
+        <div class="navbar">
+          
+  <ul class="nav nav-pills navbar-left">
+    <li><a class="navbar-brand" href="/categories"><i class="icon-folder-open"> Category: </i></a></li>
+  
+    <li><a href="/categories#General-ref">General <span class="badge">3</span></a></li>
+  
+  </ul>
+
+          
+<ul class="nav nav-pills navbar-right">
+    <li><a class="navbar-brand" href="/tags"><i class="icon-tags"> Tags: </i></a></li>
+    
+    <li><a href="/tags#competitions-ref">competitions <span class="badge">3</span></a></li>
+    
+    <li><a href="/tags#gamedev-ref">gamedev <span class="badge">3</span></a></li>
+    
+</ul>
+
+        </div>
+      
+      <div class="clearfix"></div>
+    </footer>
+    
+  </div>
+</article>
+
+
+<hr>
+<ul class="pager">
+    <li class="previous">
+        <a href="/2013/09/29/Js13kgames-retrospective-part-1/">&larr; Previous</a>
+    </li>
+    <li><a href="/archive">Archive</a></li>
+    <li class="next">
+        <a href="/2014/01/26/Procedural-globe-generation-with-d3js/">Next &rarr;</a>
+    </li>
+</ul>
+<hr>
+
+<section id="comment">
+  <h1 class="title">Comments</h1>
+
+  
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+  
+</section>
+
+
+        </div>
+        <hr>
+        <footer><p>
+  
+  &copy; 2013&mdash;2015 Harry Cummings
+  
+  (built using <a href="http://zespia.tw/hexo/" target="_blank" title="Hexo - Node.js blog framework">Hexo</a>
+    and <a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a>)
+</p></footer>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'hgcblog';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+    </div>
+</body>
+</html>

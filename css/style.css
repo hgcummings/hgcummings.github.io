@@ -1,0 +1,44 @@
+body {
+    min-width: 288px;
+}
+
+.navbar {
+    margin-bottom: 0;
+}
+
+.navbar-header {
+    padding: 0;
+}
+
+.container {
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+.jumbotron {
+    margin-top: 60px;
+}
+
+.page-header + .jumbotron {
+    margin-top: 0;
+}
+
+.jumbotron img {
+    float: left;
+    margin-right: 40px;
+    margin-bottom: 20px;
+}
+
+pre {
+    background-color: #333;
+    color: #f8f8f2;
+    white-space: pre;
+}
+
+h1 small, p .run-in {
+    white-space: nowrap;
+}
+
+figure table {
+    width: 100%;
+}

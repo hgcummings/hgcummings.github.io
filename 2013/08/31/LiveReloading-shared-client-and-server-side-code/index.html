@@ -1,0 +1,222 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>LiveReloading shared client- and server-side code | hgcummings</title>
+  <meta name="author" content="Harry Cummings">
+  
+  <meta name="description" content="BackgroundMotivationI’m currently working on a simple network multiplayer game as a bit of a learning exercise. I’m using Javascript since the client ">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="LiveReloading shared client- and server-side code"/>
+  <meta property="og:site_name" content="hgcummings"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="alternate" href="/atom.xml" title="hgcummings" type="application/atom+xml">
+  <link href="//netdna.bootstrapcdn.com/bootswatch/3.0.0/readable/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/font-awesome/3.2.1/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+  <link href="/css/highlightjs.css" rel="stylesheet">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <!--[if lt IE 9]><script src="/js/html5.js"></script><![endif]-->
+  
+  
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-43679804-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+</head>
+
+
+<body>
+    <header class="navbar navbar-inverse navbar-static-top" role="banner">
+        <div class="container">
+    <div class="navbar-header">
+        <button class="navbar-toggle" type="button" data-toggle="collapse" data-target=".bs-navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">hgcummings</a>
+    </div>
+    <nav class="collapse navbar-collapse navbar-right bs-navbar-collapse" role="navigation">
+        <ul class="nav navbar-nav">
+            
+                <li><a href="/about">About</a></li>
+            
+                <li><a href="/archive">Archive</a></li>
+            
+                <li><a href="/categories">Categories</a></li>
+            
+                <li><a href="/tags">Tags</a></li>
+            
+        </ul>
+    </nav>
+</div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <article class="post">
+  <div class="post-content">
+    <div class="page-header">
+      
+  
+    <h1 class="title">LiveReloading shared client- and server-side code</h1>
+  
+
+    </div>
+      
+      <h4>
+          31 August 2013
+          
+      </h4>
+      
+    
+      <h2 id="Background">Background</h2><h3 id="Motivation">Motivation</h3><p>I’m currently working on a simple network multiplayer game as a bit of a learning exercise. I’m using Javascript since the client is browser-based (I’ve been wanting to get some canvas/WebGL experience for ages) and I’ve found node.js to be great for small, focused server applications such as this.</p>
+<p>Also, a multiplayer game is a really strong use case for sharing code between the client and server, as you need to run identical simulations on both (there are loads of great sources on this, but <a href="http://www.gabrielgambetta.com/fpm1.html" target="_blank" rel="external">Gabriel Gambetta’s <em>Fast-paced Multiplayer</em> series</a> is an excellent overview). This makes the combination of node.js and client-side JavaScript particularly appealing.</p>
+<h3 id="Sharing_code">Sharing code</h3><p>I’m using <a href="http://browserify.org/" target="_blank" rel="external">browserify</a> to share code between the server and client, by allowing node-style CommonJS imports on the client side (as well as providing browser stand-ins for many the node.js core libraries). Getting this up-and-running with <a href="http://gruntjs.com/" target="_blank" rel="external">grunt</a> was very quick and easy.</p>
+<p>Grunt is a node.js-based task runner (similar to <a href="https://github.com/mde/jake" target="_blank" rel="external">jake</a>, or Ruby’s <a href="http://rake.rubyforge.org/" target="_blank" rel="external">rake</a>), with lots of 3rd-party plugins for performing common tasks. To set up browserify with grunt, I just had to install <code>grunt-cli</code> and <code>grunt-browserify</code> via <code>npm</code>, and create a <code>Gruntfile.js</code> for my project like this:</p>
+<pre><code>&gt; npm install -<span class="keyword">g</span> grunt-<span class="keyword">cli</span>
+&gt; npm install grunt-browserify --<span class="keyword">save</span>-dev
+</code></pre><h5 id="Gruntfile-js"><code>Gruntfile.js</code></h5><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="built_in">module</span>.exports = <span class="function"><span class="keyword">function</span><span class="params">(grunt)</span> </span>&#123;</span><br><span class="line">    grunt.initConfig(&#123;</span><br><span class="line">        clean: [ <span class="string">'build'</span> ],</span><br><span class="line">        browserify: &#123;</span><br><span class="line">            main: &#123;</span><br><span class="line">                src: [<span class="string">'client/main.js'</span>],</span><br><span class="line">                dest: <span class="string">'build/client/bundle.js'</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        copy: &#123;</span><br><span class="line">            main: &#123;</span><br><span class="line">                files: [</span><br><span class="line">                    &#123; src: [<span class="string">'client/static/*'</span>], dest: <span class="string">'build/client/'</span>, expand: <span class="literal">true</span>, flatten: <span class="literal">true</span> &#125;,</span><br><span class="line">                    &#123; src: [<span class="string">'client/lib/*'</span>], dest: <span class="string">'build/client/lib/'</span>, expand: <span class="literal">true</span>, flatten: <span class="literal">true</span> &#125;,</span><br><span class="line">                    &#123; src: [<span class="string">'server/**'</span>], dest: <span class="string">'build/'</span> &#125;,</span><br><span class="line">                    &#123; src: [<span class="string">'shared/**'</span>], dest: <span class="string">'build/'</span> &#125;</span><br><span class="line">                ]</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">    grunt.loadNpmTasks(<span class="string">'grunt-browserify'</span>);</span><br><span class="line">    grunt.loadNpmTasks(<span class="string">'grunt-contrib-copy'</span>);</span><br><span class="line">    grunt.loadNpmTasks(<span class="string">'grunt-contrib-clean'</span>);</span><br><span class="line"></span><br><span class="line">    grunt.registerTask(<span class="string">'default'</span>, [<span class="string">'clean'</span>, <span class="string">'browserify'</span>, <span class="string">'copy'</span>]);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>I simply point browserify at a single bootstrapping client-side JavaScript file, and it recursively follows any <code>require</code> calls to pull in the whole set of necessary files, then packages them all into a single bundle.</p>
+<p>I also added a grunt-contrib-copy task (to bring all the other files that aren’t part of the bundle across to the output directory), and a grunt-contrib-clean task (to wipe out the build directory before recreating it).</p>
+<h2 id="The_problem">The problem</h2><p>The above worked great, but introduced a build step into my client-side code. Up until this point I’d been able to quickly see changes in the browser by refreshing, as I was keeping <a href="https://github.com/nodeapps/http-server" target="_blank" rel="external">http-server</a> running in my client source directory serving up the script files and other static assets.</p>
+<p>Now, I had to stop the http-server (to release the lock on the output directory), run grunt (to create the browserify script bundle) and restart the server. This is only a few quick commands, but made a big difference when I was doing things like obsessively tweaking my rendering logic for drawing cartoon purple bunny rabbits. Also, as I began to work on more server-side code I’d need to restart my actual application server anyway, not just a dumb static asset http-server.</p>
+<h2 id="The_solution">The solution</h2><p>I do really like node.js and the whole Javascript ecosystem. However, since node.js and <a href="https://npmjs.org/" target="_blank" rel="external">npm</a> appeared, there’s been an overwhelming proliferation of Javascript libraries and tools, many of them individually evolving at breakneck speed, and it’s often difficult to know where to begin.</p>
+<p>In the end, I needed to make use of the following:</p>
+<ul>
+<li><a href="https://github.com/gruntjs/grunt-contrib-watch" target="_blank" rel="external">grunt-contrib-watch</a> for re-running the build process whenever my files changed</li>
+<li><a href="https://github.com/remy/nodemon" target="_blank" rel="external">nodemon</a> for running and restarting the server (I assume it’s pronounced node-daemon rather than node-mon)</li>
+<li><a href="http://livereload.com/" target="_blank" rel="external">LiveReload</a> for getting the browser to automatically refresh (actually an improvement on the original situation)</li>
+</ul>
+<h3 id="Putting_it_all_together">Putting it all together</h3><h4 id="Install">Install</h4><pre><code>&gt; npm install grunt-contrib-watch --<span class="built_in">save</span>-<span class="built_in">dev</span>
+&gt; npm install grunt-nodemon --<span class="built_in">save</span>-<span class="built_in">dev</span>
+&gt; npm install grunt-concurrent --<span class="built_in">save</span>-<span class="built_in">dev</span>
+</code></pre><p><a href="https://github.com/sindresorhus/grunt-concurrent" target="_blank" rel="external">grunt-concurrent</a> is an extra bit of glue allowing me to run watch and nodemon simultaneously.</p>
+<p>Also install <a href="http://feedback.livereload.com/knowledgebase/articles/86242-how-do-i-install-and-use-the-browser-extensions-" target="_blank" rel="external">the relevant browser extension for livereload</a>.</p>
+<h4 id="Add_grunt_tasks">Add grunt tasks</h4><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">grunt.loadNpmTasks(<span class="string">'grunt-contrib-watch'</span>);</span><br><span class="line">grunt.loadNpmTasks(<span class="string">'grunt-nodemon'</span>);</span><br><span class="line">grunt.loadNpmTasks(<span class="string">'grunt-concurrent'</span>);</span><br></pre></td></tr></table></figure>
+<h4 id="Configure_grunt_tasks">Configure grunt tasks</h4><ul><li>First <code>watch</code>, to run the browserify bundling process (and copy the output files to the right place)</li><li>Then <code>nodemon</code>, to run my server start script<ul><li>Note that I’ve actually configured nodemon to monitor the build directory, so it’s effectively downstream of the browserify step</li><li>There are various other options for choosing which files to monitor or exclude, but this was the neatest one for me and avoided any duplication with the watch step</li><li>The delayTime makes nodemon wait a moment after first spotting a change in case there are any other changes very shortly after</li></ul></li><li>Finally <code>concurrent</code>, to run both processes and combine their command-line output</li></ul>
+
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">watch: &#123;</span><br><span class="line">    files: [<span class="string">'client/**/*.js'</span>, <span class="string">'shared/**/*.js'</span>, <span class="string">'client/**/*.html'</span>, <span class="string">'client/**/*.css'</span>],</span><br><span class="line">    tasks: [<span class="string">'browserify'</span>, <span class="string">'copy'</span>],</span><br><span class="line">    options: &#123;</span><br><span class="line">        livereload: <span class="literal">true</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;,</span><br><span class="line">nodemon: &#123;</span><br><span class="line">    dev: &#123;</span><br><span class="line">        options: &#123;</span><br><span class="line">            file: <span class="string">'start.js'</span>,</span><br><span class="line">            watchedFolders: [<span class="string">'build'</span>],</span><br><span class="line">            delayTime: <span class="number">1</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;,</span><br><span class="line">concurrent: &#123;</span><br><span class="line">    target: &#123;</span><br><span class="line">        tasks: [<span class="string">'nodemon'</span>, <span class="string">'watch'</span>],</span><br><span class="line">        options: &#123;</span><br><span class="line">            logConcurrentOutput: <span class="literal">true</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>So now, whenever I make a change to client- or server-side files, I just have to wait a second before the server restarts and the browser automatically refreshes. Perfect!</p>
+<p>If only I’d managed to sort this out <em>before</em> last weekend’s <a href="http://www.ludumdare.com/compo/" target="_blank" rel="external">Ludum Dare</a> I might have ended up submitting an entry. Unfortunately I ran out of time (not <em>just</em> due to faffing with client/server build process). I’m very pleased to have got it working since though, and have carried on development of the game that I started over the Ludum Dare weekend. You can view the working result of all of the above in <a href="https://github.com/hgcummings/ld-27" target="_blank" rel="external">the project’s github repo</a>.</p>
+
+    
+    
+    <footer>
+      
+        <div class="navbar">
+          
+  <ul class="nav nav-pills navbar-left">
+    <li><a class="navbar-brand" href="/categories"><i class="icon-folder-open"> Category: </i></a></li>
+  
+    <li><a href="/categories#JavaScript-ref">JavaScript <span class="badge">2</span></a></li>
+  
+  </ul>
+
+          
+<ul class="nav nav-pills navbar-right">
+    <li><a class="navbar-brand" href="/tags"><i class="icon-tags"> Tags: </i></a></li>
+    
+    <li><a href="/tags#browserify-ref">browserify <span class="badge">1</span></a></li>
+    
+    <li><a href="/tags#grunt-ref">grunt <span class="badge">1</span></a></li>
+    
+    <li><a href="/tags#livereload-ref">livereload <span class="badge">1</span></a></li>
+    
+    <li><a href="/tags#node.js-ref">node.js <span class="badge">1</span></a></li>
+    
+    <li><a href="/tags#nodemon-ref">nodemon <span class="badge">1</span></a></li>
+    
+</ul>
+
+        </div>
+      
+      <div class="clearfix"></div>
+    </footer>
+    
+  </div>
+</article>
+
+
+<hr>
+<ul class="pager">
+    <li class="previous">
+        <a href="/2012/07/12/Code-generation-in-net-with-roslyn-part-3/">&larr; Previous</a>
+    </li>
+    <li><a href="/archive">Archive</a></li>
+    <li class="next">
+        <a href="/2013/09/29/Js13kgames-retrospective-part-1/">Next &rarr;</a>
+    </li>
+</ul>
+<hr>
+
+<section id="comment">
+  <h1 class="title">Comments</h1>
+
+  
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+  
+</section>
+
+
+        </div>
+        <hr>
+        <footer><p>
+  
+  &copy; 2013&mdash;2015 Harry Cummings
+  
+  (built using <a href="http://zespia.tw/hexo/" target="_blank" title="Hexo - Node.js blog framework">Hexo</a>
+    and <a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a>)
+</p></footer>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+var disqus_shortname = 'hgcblog';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+    </div>
+</body>
+</html>
