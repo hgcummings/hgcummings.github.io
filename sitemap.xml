@@ -2,6 +2,11 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>http://hgc.io/speaking/index.html</loc>
+    <lastmod>2015-05-16T08:13:40.825Z</lastmod>
+  </url>
+  
+  <url>
     <loc>http://hgc.io/2014/08/28/Continuous-deployment-to-Heroku-with-Travis-CI/</loc>
     <lastmod>2014-08-27T22:03:16.806Z</lastmod>
   </url>

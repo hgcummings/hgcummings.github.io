@@ -42,3 +42,7 @@ h1 small, p .run-in {
 figure table {
     width: 100%;
 }
+
+.credits {
+    font-size: 0.75em;
+}
