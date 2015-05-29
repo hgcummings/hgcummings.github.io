@@ -2,8 +2,18 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>http://hgc.io/2013/11/26/Year-of-the-GoAT-the-guild-of-automated-testing/</loc>
+    <lastmod>2015-05-29T22:25:35.715Z</lastmod>
+  </url>
+  
+  <url>
     <loc>http://hgc.io/speaking/index.html</loc>
-    <lastmod>2015-05-16T08:13:40.825Z</lastmod>
+    <lastmod>2015-05-29T22:14:30.999Z</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://hgc.io/categories/index.html</loc>
+    <lastmod>2015-05-16T07:25:39.837Z</lastmod>
   </url>
   
   <url>
@@ -54,11 +64,6 @@
   <url>
     <loc>http://hgc.io/tags/index.html</loc>
     <lastmod>2014-04-19T08:09:03.754Z</lastmod>
-  </url>
-  
-  <url>
-    <loc>http://hgc.io/categories/index.html</loc>
-    <lastmod>2014-04-19T08:09:03.740Z</lastmod>
   </url>
   
   <url>

@@ -216,6 +216,54 @@
   </entry>
   
   <entry>
+    <title><![CDATA[Year of the GoAT: The Guild of Automated Testing]]></title>
+    <link href="http://hgc.io/2013/11/26/Year-of-the-GoAT-the-guild-of-automated-testing/"/>
+    <id>http://hgc.io/2013/11/26/Year-of-the-GoAT-the-guild-of-automated-testing/</id>
+    <published>2013-11-26T11:00:00.000Z</published>
+    <updated>2015-05-29T22:25:35.715Z</updated>
+    <content type="html"><![CDATA[<h2 id="What_are_Guilds?">What are Guilds?</h2><p>At Softwire, we’re always keen to learn from others, but it can be difficult to apply lessons from elsewhere in the software industry that we come across at conferences, in literature and online; because much of the wisdom on best practices in our field seems to be aimed at product companies or in-house enterprise development teams. As a services company, we have a very different structure and different commercial pressures.</p>
+<p>However, sometimes lessons from other companies really resonate with us. One example of this was the article on <a href="http://blog.crisp.se/2012/11/14/henrikkniberg/scaling-agile-at-spotify" target="_blank" rel="external">Scaling Agile at Spotify</a>, which <a href="https://twitter.com/camille_" target="_blank" rel="external">Camille</a> posted to our internal blog. Much of it seemed relevant to us, especially as we’d grown in the last few years from a small business to a medium-sized one, while trying to retain for ourselves the benefits of working in a small company environment.</p>
+<p>There are a lot of great ideas in Spotify’s structure, but the concept of guilds stood out particularly. Guilds are described in the above article as “… a more organic and wide-reaching ‘community of interest’, a group of people that want to share knowledge, tools, code, and practices”. Something about the idea of a guild as a group of particularly enthusiastic people also reminded us of a phrase in <a href="https://twitter.com/KevlinHenney" target="_blank" rel="external">Kevlin Henney’s</a> keynote at DevWeek earlier this year: “we are fanatics for testing” – this struck a chord with us at Softwire!</p>
+<h2 id="Setting_up_a_Testing_Guild">Setting up a Testing Guild</h2><p>I was wary about how to go about launching a guild. The idea wasn’t fully formed in my mind, and I didn’t want to be too prescriptive about what I thought a guild should be before getting other people involved. I didn’t even know whether other people would be interested. So, I made a throwaway comment on our internal Discourse in reply to a thread about the Spotify article, asking whether anyone would be interested in started an Automated Testing Guild at Softwire.</p>
+<p>It turns out people were interested. Our Test Lead, <a href="https://twitter.com/JennyMulholland" target="_blank" rel="external">Jenny</a>, who had been looking for ways to get people thinking more about testing, drew attention to my comment and stoked up some enthusiasm around the idea. About twenty people responded within a few days, and the following week we held our inaugural guild meeting. We had a good cross-section of the company present at the meeting, including developers from many different projects, and our MD (<a href="https://twitter.com/ZoeFCunningham" target="_blank" rel="external">Zoe</a>). The idea of a guild as something that cut across multiple projects and roles within the company struck me as really powerful, allowing us to benefit from a range of insight and ideas, and opening up more options for changing things.</p>
+<p>Having been intentionally vague about what the guild would involve, I was eager to find out what ideas people would bring with them. We came up with a few guiding principles for what we wanted to get out of the guild:</p>
+<ul>
+<li>Keeping automated testing in the Softwire consciousness and making it a priority</li>
+<li>Providing encouragement and support to people pushing for more automated testing on their projects</li>
+<li>Sharing knowledge and experience within the company, and teaching new starters better</li>
+<li>Getting better as a company at making the most of TDD and automated testing</li>
+</ul>
+<h3 id="Reaping_the_benefits">Reaping the benefits</h3><p>The above objectives are great as a clear mission statement for the guild. Even more satisfying though are the specific actions that have come out of our first two guild meetings. Many of these were ideas that people had in mind anyway, but the guild has given them the impetus to carry out, or the opportunity to find collaborators to make the job easier and more successful. Others were completely new ideas that arose from our initial guild meetings.</p>
+<p>So far, we’ve seen the following happen:</p>
+<ul>
+<li>Guild members helping out on projects needing some work on their infrastructure to make automated testing easier</li>
+<li>A brilliant newsletter showcasing some of the automated testing success stories from across the company, highlighting particularly useful tools and techniques, and encouraging everyone to do more automated testing on their own projects</li>
+<li>More blog posts and new training material on our internal wiki, to share knowledge on automated testing and help everyone get up to speed</li>
+</ul>
+<p>And there are further exciting plans for the near future:</p>
+<ul>
+<li>Lunchtime training sessions including a TDD dojo and a JavaScript testing workshop</li>
+<li>A TDD-based section in our next internal speed coding competition</li>
+<li>Better training for new starters on testing and TDD</li>
+</ul>
+<p>It’s worth noting that all of the above have been promoted to the whole company, not just within the guild. Operating in the open and involving everyone are vital to achieving the overall goals stated above, which all relate to the whole company. The role of the guild has been to provide momentum and generate ideas for the benefit of the whole company, not to be at all insular or exclusive.</p>
+<p>That said, a bit of camaraderie and group identity is helpful for sustaining some momentum and buzz around the idea of a guild. Speculation about an acronym-appropriate mascot for the Guild Of Automated Testing, and the occasional shout of “Testify!” do not do any harm.</p>
+<h2 id="More_Guilds?">More Guilds?</h2><p>Beyond its own remit of improving our automated testing practices at Softwire, the creation of the Automated Testing Guild has also triggered similar initiatives in other disciplines. Since the formation of the guild, we’ve also seen a Training Guild and an Agile Guild form, with similar goals of sharing knowledge and generally raising our game in these areas as a company. There’s also a fledgling guild with the broader aim of helping support anyone in making new things happen.</p>
+<p>Only time will tell if the enthusiasm and excitement around the various guilds will persist, but they’ve already achieved some concrete improvements so far, and have been a very positive addition to our office culture.</p>
+]]></content>
+    <summary type="html">
+    <![CDATA[<h2 id="What_are_Guilds?">What are Guilds?</h2><p>At Softwire, we’re always keen to learn from others, but it can be difficult to apply less]]>
+    </summary>
+    
+      <category term="agile" scheme="http://hgc.io/tags/agile/"/>
+    
+      <category term="testing" scheme="http://hgc.io/tags/testing/"/>
+    
+      <category term="General" scheme="http://hgc.io/categories/General/"/>
+    
+  </entry>
+  
+  <entry>
     <title><![CDATA[Js13kGames retrospective (part 2)]]></title>
     <link href="http://hgc.io/2013/09/30/Js13kgames-retrospective-part-2/"/>
     <id>http://hgc.io/2013/09/30/Js13kgames-retrospective-part-2/</id>
